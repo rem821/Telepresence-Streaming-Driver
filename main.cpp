@@ -2,7 +2,6 @@
 #include <chrono>
 #include <gst/gst.h>
 #include <thread>
-#include "meta.h"
 #include "logging.h"
 
 const std::string MONO_VIDEO_CAPS_NVMM = "video/x-raw(memory:NVMM),width=(int)1920,height=(int)1080,framerate=(fraction)30/1,format=(string)NV12";
@@ -34,48 +33,6 @@ void SetPipelineToPlayingState(GstElement *pipeline, const std::string &name) {
     gst_object_unref(pipeline);
 }
 
-void RunCombinedCameraStreamingPipeline(int sensorId, int port) {
-    std::ostringstream oss;
-#ifdef JETSON
-    oss << "nvarguscamerasrc aeantibanding=AeAntibandingMode_Off ee-mode=EdgeEnhancement_Off tnr-mode=NoiseReduction_Off saturation=1.5 sensor-id=" << sensorId
-            << " ! " << MONO_VIDEO_CAPS_NVMM << " ! identity name=nvarguscamerasrc_identity ! nvvidconv flip-method=vertical-flip ! " << MONO_VIDEO_CAPS <<
-            " ! identity name=meta_identity"
-            " ! identity name=nvvidconv_identity ! jpegenc quality=70 idct-method=ifast"
-            " ! identity name=jpegenc_identity ! rtpjpegpay"
-            " ! identity name=rtpjpegpay_identity ! udpsink host=" << DEST_IP << " sync=false port=" << port;
-#else
-    oss << "videotestsrc pattern=" << sensorId
-            << " ! " << MONO_VIDEO_CAPS <<
-            " ! identity name=nvarguscamerasrc_identity"
-            " ! identity name=meta_identity"
-            " ! clockoverlay"
-            " ! identity name=nvvidconv_identity"
-            " ! jpegenc quality=70 idct-method=ifast"
-            " ! identity name=jpegenc_identity"
-            " ! rtpjpegpay"
-            " ! identity name=rtpjpegpay_identity"
-            " ! udpsink host=" << DEST_IP << " sync=false port=" << port;
-#endif
-
-    const auto pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
-    const std::string pipelineName = "pipeline_camera_" + std::to_string(sensorId);
-    gst_element_set_name(pipeline, pipelineName.c_str());
-
-    GstElement *nvarguscamerasrc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "nvarguscamerasrc_identity");
-    GstElement *meta_identity = gst_bin_get_by_name(GST_BIN(pipeline), "meta_identity");
-    GstElement *nvvidconv_identity = gst_bin_get_by_name(GST_BIN(pipeline), "nvvidconv_identity");
-    GstElement *jpegenc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "jpegenc_identity");
-    GstElement *rtpjpegpay_identity = gst_bin_get_by_name(GST_BIN(pipeline), "rtpjpegpay_identity");
-
-    g_signal_connect(nvarguscamerasrc_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(meta_identity, "handoff", G_CALLBACK(OnIdentityHandoffMeta), nullptr);
-    g_signal_connect(nvvidconv_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(jpegenc_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(rtpjpegpay_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-
-    SetPipelineToPlayingState(pipeline, "camera streaming combined pipeline");
-}
-
 void RunCameraPipeline(int sensorId, const std::string &shmPath) {
     std::ostringstream oss;
 #ifdef JETSON
@@ -93,7 +50,8 @@ void RunCameraPipeline(int sensorId, const std::string &shmPath) {
 #endif
 
     const auto pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
-    const std::string pipelineName = "pipeline_camera_" + std::to_string(sensorId);
+    const std::string side = sensorId == 0 ? "left" : "right";
+    const std::string pipelineName = "pipeline_" + side;
     gst_element_set_name(pipeline, pipelineName.c_str());
 
     GstElement *nvarguscamerasrc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "nvarguscamerasrc_identity");
@@ -105,22 +63,6 @@ void RunCameraPipeline(int sensorId, const std::string &shmPath) {
     SetPipelineToPlayingState(pipeline, "camera src pipeline");
 }
 
-void RunCompositionPipeline(const std::string &shm0Path, const std::string &shm1Path, const std::string &outShmPath) {
-    // std::ostringstream oss;
-    // oss << "shmsrc is-live=true do-timestamp=true socket-path=" << shm0Path
-    //     << " ! " << MONO_VIDEO_CAPS
-    //     << " ! queue ! compositor name=comp sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=640 sink_1::ypos=0 ! " << STEREO_VIDEO_CAPS
-    //     << " ! videoconvert ! shmsink wait-for-connection=false sync=true socket-path=" << outShmPath
-    //     //<< " ! videoconvert ! fpsdisplaysink"
-    //     << " shmsrc is-live=true do-timestamp=true socket-path=" << shm1Path
-    //     << " ! " << MONO_VIDEO_CAPS
-    //     << " ! queue ! comp.sink_1";
-    //
-    // auto *pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
-    //
-    // SetPipelineToPlayingState(pipeline, "composition pipeline");
-}
-
 void RunStreamingPipeline(const std::string &shmPath, const int port) {
     std::ostringstream oss;
     oss << "shmsrc is-live=true do-timestamp=true socket-path=" << shmPath
@@ -129,18 +71,19 @@ void RunStreamingPipeline(const std::string &shmPath, const int port) {
             << DEST_IP << " sync=false port=" << port;
 
     auto *pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
-    const std::string pipelineName = "pipeline_" + std::to_string(port);
+    const std::string side = port == 8554 ? "left" : "right";
+    const std::string pipelineName = "pipeline_" + side;
     gst_element_set_name(pipeline, pipelineName.c_str());
 
-    GstElement *meta_identity = gst_bin_get_by_name(GST_BIN(pipeline), "meta_identity");
     GstElement *shmsrc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "shmsrc_identity");
     GstElement *jpegenc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "jpegenc_identity");
     GstElement *rtpjpegpay_identity = gst_bin_get_by_name(GST_BIN(pipeline), "rtpjpegpay_identity");
+    GstElement *meta_identity = gst_bin_get_by_name(GST_BIN(pipeline), "meta_identity");
 
-    g_signal_connect(meta_identity, "handoff", G_CALLBACK(OnIdentityHandoffMeta), nullptr);
     g_signal_connect(shmsrc_identity, "handoff", G_CALLBACK(OnIdentityHandoffStreaming), nullptr);
     g_signal_connect(jpegenc_identity, "handoff", G_CALLBACK(OnIdentityHandoffStreaming), nullptr);
     g_signal_connect(rtpjpegpay_identity, "handoff", G_CALLBACK(OnIdentityHandoffStreaming), nullptr);
+    //g_signal_connect(meta_identity, "handoff", G_CALLBACK(OnIdentityHandoffMeta), nullptr);
 
     SetPipelineToPlayingState(pipeline, "streaming pipeline");
 }
@@ -153,11 +96,13 @@ void RunReceivingPipeline(const int &port) {
             "! jpegdec ! video/x-raw,format=RGB ! identity name=jpegdec_identity "
             "! identity ! identity name=queue_identity "
             "! videoconvert ! identity name=videoconvert_identity "
+            // Funny element "! vertigotv ! videoconvert "
             "! videoflip method=vertical-flip ! identity name=videoflip_identity "
             "! fpsdisplaysink";
 
     auto *pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
-    const std::string pipelineName = "pipeline_" + std::to_string(port);
+    const std::string side = port == 8554 ? "left" : "right";
+    const std::string pipelineName = "pipeline_" + side;
     gst_element_set_name(pipeline, pipelineName.c_str());
 
     GstElement *udpsrc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "udpsrc_identity");
@@ -194,47 +139,38 @@ int RunStreaming() {
 
     const std::string shmCam1Path = "/tmp/cam1";
     std::cout << "Path for Camera 1 shm: " << shmCam1Path.c_str() << "\n";
-    //std::thread cameraPipelineThread1(RunCameraPipeline, 1, shmCam1Path);
+    std::thread cameraPipelineThread1(RunCameraPipeline, 1, shmCam1Path);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     std::thread streamingPipelineThread0(RunStreamingPipeline, shmCam0Path, PORT_LEFT);
-    //std::thread streamingPipelineThread1(RunStreamingPipeline, shmCam1Path, PORT_RIGHT);
+    std::thread streamingPipelineThread1(RunStreamingPipeline, shmCam1Path, PORT_RIGHT);
 
     cameraPipelineThread0.join();
-    //cameraPipelineThread1.join();
+    cameraPipelineThread1.join();
     streamingPipelineThread0.join();
-    //streamingPipelineThread1.join();
+    streamingPipelineThread1.join();
 
     return 0;
 }
 
-int RunCombinedCameraStreaming() {
-    std::thread cameraStreamingPipelineThread0(RunCombinedCameraStreamingPipeline, 0, PORT_LEFT);
-    //std::thread cameraStreamingPipelineThread1(RunCombinedCameraStreamingPipeline, 1, PORT_RIGHT);
-
-    cameraStreamingPipelineThread0.join();
-    //cameraStreamingPipelineThread1.join();
-}
-
 int RunReceiving() {
     std::thread receivingPipelineThread0(RunReceivingPipeline, PORT_LEFT);
-    //std::thread receivingPipelineThread1(RunReceivingPipeline, PORT_RIGHT);
+    std::thread receivingPipelineThread1(RunReceivingPipeline, PORT_RIGHT);
 
     receivingPipelineThread0.join();
-    //receivingPipelineThread1.join();
+    receivingPipelineThread1.join();
 
     return 0;
 }
 
 int main(int argc, char *argv[]) {
     gst_init(&argc, &argv);
-    gst_debug_set_default_threshold(GST_LEVEL_ERROR);
-
+    gst_debug_set_default_threshold(GST_LEVEL_WARNING);
 
 #ifdef JETSON
-    return RunCombinedCameraStreaming();
+    return RunStreaming();
 #else
-    return RunCombinedCameraStreaming();
+    return RunReceiving();
 #endif
 }
