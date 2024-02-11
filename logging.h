@@ -24,6 +24,9 @@ inline bool cameraLeftFrameIdIncremented = false, cameraRightFrameIdIncremented 
 inline std::map<std::string, std::vector<long> > timestampsReceiving;
 inline std::map<std::string, std::vector<long> > timestampsReceivingFiltered;
 
+inline uint16_t latestNvvidconv = 0, latestJpegenc = 0, latestRtpjpegpay = 0;
+inline uint64_t latestRtpJpegpayTimestamp = 0;
+
 inline bool finishing = false;
 
 inline uint16_t GetFrameId(const std::string &pipelineName) {
@@ -136,12 +139,14 @@ inline void OnIdentityHandoffCameraStreaming(const GstElement *identity, GstBuff
 
     const std::string pipelineName = identity->object.parent->name;
 
-    timestampsStreaming[pipelineName].emplace_back(timeMicro);
 
     if (std::string(identity->object.name) == "nvarguscamerasrc_identity" && !timestampsStreaming[pipelineName].empty()) {
         // Frame successfully sent, new one just got into the pipeline
+        timestampsStreaming[pipelineName].clear();
         FrameSent(pipelineName);
     }
+
+    timestampsStreaming[pipelineName].emplace_back(timeMicro);
 
     // Add metadata to the RTP header on the first call of rtpjpegpay
     if (std::string(identity->object.name) == "rtpjpegpay_identity" && !IsFrameIncremented(pipelineName)) {
@@ -151,24 +156,35 @@ inline void OnIdentityHandoffCameraStreaming(const GstElement *identity, GstBuff
         timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][3]);
 
         const unsigned long d = timestampsStreamingFiltered[pipelineName].size();
-        std::cout << pipelineName << ": frame - " << GetFrameId(pipelineName) <<
-                " nvvidconv: " << timestampsStreamingFiltered[pipelineName][d - 3] - timestampsStreamingFiltered[pipelineName][d - 4] <<
-                " jpegenc: " << timestampsStreamingFiltered[pipelineName][d - 2] - timestampsStreamingFiltered[pipelineName][d - 3] <<
-                ", rtpjpegpay: " << timestampsStreamingFiltered[pipelineName][d - 1] - timestampsStreamingFiltered[pipelineName][d - 2] <<
-                "\n";
 
-        timestampsStreaming[pipelineName].clear();
+        uint16_t nvvidconv = timestampsStreamingFiltered[pipelineName][d - 3] - timestampsStreamingFiltered[pipelineName][d - 4];
+        uint16_t jpegenc = timestampsStreamingFiltered[pipelineName][d - 2] - timestampsStreamingFiltered[pipelineName][d - 3];
+        uint16_t rtpjpegpay = timestampsStreamingFiltered[pipelineName][d - 1] - timestampsStreamingFiltered[pipelineName][d - 2];
+
+        // std::cout << pipelineName << ": frame - " << GetFrameId(pipelineName) <<
+        //         ", nvvidconv: " << nvvidconv <<
+        //         ", jpegenc: " << jpegenc <<
+        //         ", rtpjpegpay: " << rtpjpegpay <<
+        //         "\n";
 
         GstRTPBuffer rtp_buf = GST_RTP_BUFFER_INIT;
         if (gst_rtp_buffer_map(buffer, GST_MAP_READWRITE, &rtp_buf)) {
+            // Add FrameId
             uint16_t frameId = IncrementFrameId(pipelineName);
-            if (!gst_rtp_buffer_add_extension_twobytes_header(&rtp_buf, 1, 1, &frameId, sizeof(frameId))) {
+            uint64_t rtpjpegpayTimestamp = timestampsStreamingFiltered[pipelineName][d - 1];
+            if (
+                !gst_rtp_buffer_add_extension_twobytes_header(&rtp_buf, 1, 1, &frameId, sizeof(frameId)) ||
+                !gst_rtp_buffer_add_extension_twobytes_header(&rtp_buf, 1, 1, &nvvidconv, sizeof(nvvidconv)) ||
+                !gst_rtp_buffer_add_extension_twobytes_header(&rtp_buf, 1, 1, &jpegenc, sizeof(jpegenc)) ||
+                !gst_rtp_buffer_add_extension_twobytes_header(&rtp_buf, 1, 1, &rtpjpegpay, sizeof(rtpjpegpay)) ||
+                !gst_rtp_buffer_add_extension_twobytes_header(&rtp_buf, 1, 1, &rtpjpegpayTimestamp, sizeof(rtpjpegpayTimestamp))
+            ) {
                 std::cerr << "Couldn't add the RTP header with metadata! \n";
             }
+
             gst_rtp_buffer_unmap(&rtp_buf);
         }
     }
-
 
     if (timestampsStreamingFiltered[pipelineName].size() > SAMPLES && BENCHMARK) {
         finishing = true;
@@ -191,18 +207,28 @@ inline void OnIdentityHandoffReceiving(const GstElement *identity, GstBuffer *bu
         GstRTPBuffer rtp_buf = GST_RTP_BUFFER_INIT;
         gst_rtp_buffer_map(buffer, GST_MAP_READ, &rtp_buf);
         gpointer myInfoBuf = nullptr;
-        guint size = 2;
+        guint size_16 = 2;
+        guint size_64 = 8;
         guint8 appbits = 1;
-        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 0, &myInfoBuf, &size)) {
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 0, &myInfoBuf, &size_16)) {
             if (pipelineName == "pipeline_left") {
-                //cameraLeftFrameId = *(static_cast<uint16_t *>(myInfoBuf));
+                cameraLeftFrameId = *(static_cast<uint16_t *>(myInfoBuf));
             } else if (pipelineName == "pipeline_right") {
-                //cameraRightFrameId = *(static_cast<uint16_t *>(myInfoBuf));
+                cameraRightFrameId = *(static_cast<uint16_t *>(myInfoBuf));
             }
-        } else {
-            //std::cerr << "Couldn't read RTP header! \n";
         }
-
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 1, &myInfoBuf, &size_16)) {
+            latestNvvidconv = *(static_cast<uint16_t *>(myInfoBuf));
+        }
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 2, &myInfoBuf, &size_16)) {
+            latestJpegenc = *(static_cast<uint16_t *>(myInfoBuf));
+        }
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 3, &myInfoBuf, &size_16)) {
+            latestRtpjpegpay = *(static_cast<uint16_t *>(myInfoBuf));
+        }
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 4, &myInfoBuf, &size_64)) {
+            latestRtpJpegpayTimestamp = *(static_cast<uint64_t *>(myInfoBuf));
+        }
         gst_rtp_buffer_unmap(&rtp_buf);
     }
 
@@ -218,13 +244,25 @@ inline void OnIdentityHandoffReceiving(const GstElement *identity, GstBuffer *bu
             timestampsReceivingFiltered[pipelineName].emplace_back(timestampsReceiving[pipelineName][s - 1]);
 
             const unsigned long d = timestampsReceivingFiltered[pipelineName].size();
+
+            uint16_t udpstream = timestampsReceivingFiltered[pipelineName][d - 6] - latestRtpJpegpayTimestamp;
+            uint16_t rtpjpegdepay = timestampsReceivingFiltered[pipelineName][d - 5] - timestampsReceivingFiltered[pipelineName][d - 6];
+            uint16_t jpegdec = timestampsReceivingFiltered[pipelineName][d - 4] - timestampsReceivingFiltered[pipelineName][d - 5];
+            uint16_t queue = timestampsReceivingFiltered[pipelineName][d - 3] - timestampsReceivingFiltered[pipelineName][d - 4];
+            uint16_t videoconvert = timestampsReceivingFiltered[pipelineName][d - 2] - timestampsReceivingFiltered[pipelineName][d - 3];
+            uint16_t videoflip = timestampsReceivingFiltered[pipelineName][d - 1] - timestampsReceivingFiltered[pipelineName][d - 2];
+
             std::cout << pipelineName <<
                     ": frame - " << GetFrameId(pipelineName) <<
-                    ": rtpjpegdepay: " << timestampsReceivingFiltered[pipelineName][d - 5] - timestampsReceivingFiltered[pipelineName][d - 6] <<
-                    ", jpegdec: " << timestampsReceivingFiltered[pipelineName][d - 4] - timestampsReceivingFiltered[pipelineName][d - 5] <<
-                    ", queue: " << timestampsReceivingFiltered[pipelineName][d - 3] - timestampsReceivingFiltered[pipelineName][d - 4] <<
-                    ", videoconvert: " << timestampsReceivingFiltered[pipelineName][d - 2] - timestampsReceivingFiltered[pipelineName][d - 3] <<
-                    ", videoflip: " << timestampsReceivingFiltered[pipelineName][d - 1] - timestampsReceivingFiltered[pipelineName][d - 2] << "\n";
+                    ", nvvidconv: " << latestNvvidconv <<
+                    ", jpegenc: " << latestJpegenc <<
+                    ", rtpjpegpay: " << latestRtpjpegpay <<
+                    ", udpstream: " << udpstream <<
+                    ": rtpjpegdepay: " << rtpjpegdepay <<
+                    ", jpegdec: " << jpegdec <<
+                    ", queue: " << queue <<
+                    ", videoconvert: " << videoconvert <<
+                    ", videoflip: " << videoflip << "\n";
         }
         timestampsReceiving[pipelineName].clear();
     }

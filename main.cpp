@@ -4,8 +4,8 @@
 #include <thread>
 #include "logging.h"
 
-const std::string MONO_VIDEO_CAPS_NVMM = "video/x-raw(memory:NVMM),width=(int)1920,height=(int)1080,framerate=(fraction)5/1,format=(string)NV12";
-const std::string MONO_VIDEO_CAPS = "video/x-raw,width=(int)1920,height=(int)1080,framerate=(fraction)5/1,format=(string)NV12";
+const std::string MONO_VIDEO_CAPS_NVMM = "video/x-raw(memory:NVMM),width=(int)1920,height=(int)1080,framerate=(fraction)30/1,format=(string)NV12";
+const std::string MONO_VIDEO_CAPS = "video/x-raw,width=(int)1920,height=(int)1080,framerate=(fraction)30/1,format=(string)NV12";
 const std::string DEST_IP = "192.168.1.120";
 
 constexpr int PORT_LEFT = 8554;
@@ -142,6 +142,6 @@ int main(int argc, char *argv[]) {
 #ifdef JETSON
     return RunStreaming();
 #else
-    return RunBoth();
+    return RunCameraStreaming();
 #endif
 }
