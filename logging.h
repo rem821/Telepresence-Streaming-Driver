@@ -19,8 +19,6 @@ constexpr unsigned int SAMPLES = 1000;
 inline std::map<std::string, std::vector<long> > timestampsCamera;
 inline std::map<std::string, std::vector<long> > timestampsStreaming;
 inline std::map<std::string, std::vector<long> > timestampsStreamingFiltered;
-inline std::map<std::string, std::vector<long> > timestampsCameraStreaming;
-inline std::map<std::string, std::vector<long> > timestampsCameraStreamingFiltered;
 static inline uint16_t cameraLeftFrameId = 0, cameraRightFrameId = 0;
 inline bool cameraLeftFrameIdIncremented = false, cameraRightFrameIdIncremented = false;
 inline std::map<std::string, std::vector<long> > timestampsReceiving;
@@ -128,7 +126,7 @@ inline void SaveLogFilesReceiving() {
     throw std::exception();
 }
 
-inline void OnIdentityHandoffCamera(const GstElement *identity, GstBuffer *buffer, gpointer data) {
+inline void OnIdentityHandoffCameraStreaming(const GstElement *identity, GstBuffer *buffer, gpointer data) {
     if (finishing) { return; }
     using namespace std::chrono;
 
@@ -137,54 +135,40 @@ inline void OnIdentityHandoffCamera(const GstElement *identity, GstBuffer *buffe
     const auto timeMicro = tmp.count();
 
     const std::string pipelineName = identity->object.parent->name;
-    timestampsCamera[pipelineName].emplace_back(timeMicro);
 
-    if (std::string(identity->object.name) == "nvvidconv_identity") {
-        const unsigned long d = timestampsCamera[pipelineName].size();
+    timestampsStreaming[pipelineName].emplace_back(timeMicro);
 
-        std::cout << pipelineName << ": frame - " << GetFrameId(pipelineName) <<
-                " nvvidconv: " << timestampsCamera[pipelineName].back() - timestampsCamera[pipelineName][d - 2] << "\n";
+    if (std::string(identity->object.name) == "nvarguscamerasrc_identity" && !timestampsStreaming[pipelineName].empty()) {
+        // Frame successfully sent, new one just got into the pipeline
+        FrameSent(pipelineName);
     }
-}
 
-inline void OnIdentityHandoffStreaming(const GstElement *identity, GstBuffer *buffer, gpointer data) {
-    if (finishing) { return; }
-    using namespace std::chrono;
-
-    const auto tp = std::chrono::time_point_cast<microseconds>(steady_clock::now());
-    const auto tmp = std::chrono::duration_cast<microseconds>(tp.time_since_epoch());
-    const auto timeMicro = tmp.count();
-
-    const std::string pipelineName = identity->object.parent->name;
-
+    // Add metadata to the RTP header on the first call of rtpjpegpay
     if (std::string(identity->object.name) == "rtpjpegpay_identity" && !IsFrameIncremented(pipelineName)) {
+        timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][0]);
+        timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][1]);
+        timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][2]);
+        timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][3]);
+
+        const unsigned long d = timestampsStreamingFiltered[pipelineName].size();
+        std::cout << pipelineName << ": frame - " << GetFrameId(pipelineName) <<
+                " nvvidconv: " << timestampsStreamingFiltered[pipelineName][d - 3] - timestampsStreamingFiltered[pipelineName][d - 4] <<
+                " jpegenc: " << timestampsStreamingFiltered[pipelineName][d - 2] - timestampsStreamingFiltered[pipelineName][d - 3] <<
+                ", rtpjpegpay: " << timestampsStreamingFiltered[pipelineName][d - 1] - timestampsStreamingFiltered[pipelineName][d - 2] <<
+                "\n";
+
+        timestampsStreaming[pipelineName].clear();
+
         GstRTPBuffer rtp_buf = GST_RTP_BUFFER_INIT;
         if (gst_rtp_buffer_map(buffer, GST_MAP_READWRITE, &rtp_buf)) {
             uint16_t frameId = IncrementFrameId(pipelineName);
             if (!gst_rtp_buffer_add_extension_twobytes_header(&rtp_buf, 1, 1, &frameId, sizeof(frameId))) {
-                std::cerr << "Couldn't add a rtp header with metadata! \n";
+                std::cerr << "Couldn't add the RTP header with metadata! \n";
             }
             gst_rtp_buffer_unmap(&rtp_buf);
         }
     }
 
-    if (std::string(identity->object.name) == "shmsrc_identity") {
-        if (!timestampsStreaming[pipelineName].empty()) {
-            timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][0]);
-            timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][1]);
-            timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName].back());
-
-            const unsigned long d = timestampsStreamingFiltered[pipelineName].size();
-            std::cout << pipelineName << ": frame - " << GetFrameId(pipelineName) <<
-                    " jpegenc: " << timestampsStreamingFiltered[pipelineName][d - 2] - timestampsStreamingFiltered[pipelineName][d - 3] <<
-                    ", rtpjpegpay: " << timestampsStreamingFiltered[pipelineName].back() - timestampsStreamingFiltered[pipelineName][d - 2] <<
-                    "\n";
-        }
-        timestampsStreaming[pipelineName].clear();
-        FrameSent(pipelineName);
-    }
-
-    timestampsStreaming[pipelineName].emplace_back(timeMicro);
 
     if (timestampsStreamingFiltered[pipelineName].size() > SAMPLES && BENCHMARK) {
         finishing = true;
@@ -211,9 +195,9 @@ inline void OnIdentityHandoffReceiving(const GstElement *identity, GstBuffer *bu
         guint8 appbits = 1;
         if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 0, &myInfoBuf, &size)) {
             if (pipelineName == "pipeline_left") {
-                cameraLeftFrameId = *((uint16_t *) myInfoBuf);
+                //cameraLeftFrameId = *(static_cast<uint16_t *>(myInfoBuf));
             } else if (pipelineName == "pipeline_right") {
-                cameraRightFrameId = *((uint16_t *) myInfoBuf);
+                //cameraRightFrameId = *(static_cast<uint16_t *>(myInfoBuf));
             }
         } else {
             //std::cerr << "Couldn't read RTP header! \n";
