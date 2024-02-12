@@ -6,7 +6,7 @@
 
 const std::string MONO_VIDEO_CAPS_NVMM = "video/x-raw(memory:NVMM),width=(int)1920,height=(int)1080,framerate=(fraction)30/1,format=(string)NV12";
 const std::string MONO_VIDEO_CAPS = "video/x-raw,width=(int)1920,height=(int)1080,framerate=(fraction)30/1,format=(string)NV12";
-const std::string DEST_IP = "192.168.1.120";
+const std::string DEST_IP = "192.168.1.100";
 
 constexpr int PORT_LEFT = 8554;
 constexpr int PORT_RIGHT = 8556;
@@ -37,8 +37,7 @@ void RunCameraStreamingPipeline(const int sensorId, const int port) {
     std::ostringstream oss;
 #ifdef JETSON
     oss << "nvarguscamerasrc aeantibanding=AeAntibandingMode_Off ee-mode=EdgeEnhancement_Off tnr-mode=NoiseReduction_Off saturation=1.5 sensor-id=" << sensorId
-            << " ! " << MONO_VIDEO_CAPS_NVMM << " ! identity name=nvarguscamerasrc_identity ! nvvidconv flip-method=vertical-flip ! " << MONO_VIDEO_CAPS <<
-            " ! identity name=nvvidconv_identity ! jpegenc quality=70 idct-method=ifast ! identity name=jpegenc_identity ! rtpjpegpay ! identity name=rtpjpegpay_identity ! udpsink host="
+            << " ! " << MONO_VIDEO_CAPS_NVMM << " ! identity name=nvarguscamerasrc_identity ! nvvidconv flip-method=none ! identity name=nvvidconv_identity ! nvjpegenc quality=85 idct-method=ifast ! identity name=jpegenc_identity ! rtpjpegpay ! identity name=rtpjpegpay_identity ! udpsink host="
             << DEST_IP << " sync=false port=" << port;
 #else
     oss << "videotestsrc pattern=" << sensorId <<
@@ -80,8 +79,8 @@ void RunReceivingPipeline(const int &port) {
             "! identity ! identity name=queue_identity "
             "! videoconvert ! identity name=videoconvert_identity "
             // Funny element "! vertigotv ! videoconvert "
-            //"! videoflip method=vertical-flip ! identity name=videoflip_identity "
             "! identity ! identity name=videoflip_identity "
+            //"! identity ! identity name=videoflip_identity "
             "! fpsdisplaysink sync=false";
 
     auto *pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
@@ -108,20 +107,20 @@ void RunReceivingPipeline(const int &port) {
 
 int RunCameraStreaming() {
     std::thread cameraPipelineThread0(RunCameraStreamingPipeline, 0, PORT_LEFT);
-    //std::thread cameraPipelineThread1(RunCameraStreamingPipeline, 1, PORT_RIGHT);
+    std::thread cameraPipelineThread1(RunCameraStreamingPipeline, 1, PORT_RIGHT);
 
     cameraPipelineThread0.join();
-    //cameraPipelineThread1.join();
+    cameraPipelineThread1.join();
 
     return 0;
 }
 
 int RunReceiving() {
     std::thread receivingPipelineThread0(RunReceivingPipeline, PORT_LEFT);
-    //std::thread receivingPipelineThread1(RunReceivingPipeline, PORT_RIGHT);
+    std::thread receivingPipelineThread1(RunReceivingPipeline, PORT_RIGHT);
 
     receivingPipelineThread0.join();
-    //receivingPipelineThread1.join();
+    receivingPipelineThread1.join();
 
     return 0;
 }
@@ -140,8 +139,8 @@ int main(int argc, char *argv[]) {
     gst_debug_set_default_threshold(GST_LEVEL_ERROR);
 
 #ifdef JETSON
-    return RunStreaming();
-#else
     return RunCameraStreaming();
+#else
+    return RunReceiving();
 #endif
 }

@@ -262,7 +262,8 @@ inline void OnIdentityHandoffReceiving(const GstElement *identity, GstBuffer *bu
                     ", jpegdec: " << jpegdec <<
                     ", queue: " << queue <<
                     ", videoconvert: " << videoconvert <<
-                    ", videoflip: " << videoflip << "\n";
+                    ", videoflip: " << videoflip <<
+                        ", TOTAL: " << (latestNvvidconv + latestJpegenc + latestRtpjpegpay + udpstream + rtpjpegdepay + jpegdec + queue + videoconvert + videoflip) / 1000.0 << "ms \n";
         }
         timestampsReceiving[pipelineName].clear();
     }
