@@ -157,9 +157,9 @@ inline void OnIdentityHandoffCameraStreaming(const GstElement *identity, GstBuff
 
         const unsigned long d = timestampsStreamingFiltered[pipelineName].size();
 
-        uint16_t nvvidconv = timestampsStreamingFiltered[pipelineName][d - 3] - timestampsStreamingFiltered[pipelineName][d - 4];
-        uint16_t jpegenc = timestampsStreamingFiltered[pipelineName][d - 2] - timestampsStreamingFiltered[pipelineName][d - 3];
-        uint16_t rtpjpegpay = timestampsStreamingFiltered[pipelineName][d - 1] - timestampsStreamingFiltered[pipelineName][d - 2];
+        uint64_t nvvidconv = timestampsStreamingFiltered[pipelineName][d - 3] - timestampsStreamingFiltered[pipelineName][d - 4];
+        uint64_t jpegenc = timestampsStreamingFiltered[pipelineName][d - 2] - timestampsStreamingFiltered[pipelineName][d - 3];
+        uint64_t rtpjpegpay = timestampsStreamingFiltered[pipelineName][d - 1] - timestampsStreamingFiltered[pipelineName][d - 2];
 
         // std::cout << pipelineName << ": frame - " << GetFrameId(pipelineName) <<
         //         ", nvvidconv: " << nvvidconv <<
@@ -170,7 +170,7 @@ inline void OnIdentityHandoffCameraStreaming(const GstElement *identity, GstBuff
         GstRTPBuffer rtp_buf = GST_RTP_BUFFER_INIT;
         if (gst_rtp_buffer_map(buffer, GST_MAP_READWRITE, &rtp_buf)) {
             // Add FrameId
-            uint16_t frameId = IncrementFrameId(pipelineName);
+            uint64_t frameId = IncrementFrameId(pipelineName);
             uint64_t rtpjpegpayTimestamp = timestampsStreamingFiltered[pipelineName][d - 1];
             if (
                 !gst_rtp_buffer_add_extension_twobytes_header(&rtp_buf, 1, 1, &frameId, sizeof(frameId)) ||
@@ -207,23 +207,22 @@ inline void OnIdentityHandoffReceiving(const GstElement *identity, GstBuffer *bu
         GstRTPBuffer rtp_buf = GST_RTP_BUFFER_INIT;
         gst_rtp_buffer_map(buffer, GST_MAP_READ, &rtp_buf);
         gpointer myInfoBuf = nullptr;
-        guint size_16 = 2;
         guint size_64 = 8;
         guint8 appbits = 1;
-        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 0, &myInfoBuf, &size_16)) {
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 0, &myInfoBuf, &size_64)) {
             if (pipelineName == "pipeline_left") {
                 cameraLeftFrameId = *(static_cast<uint16_t *>(myInfoBuf));
             } else if (pipelineName == "pipeline_right") {
                 cameraRightFrameId = *(static_cast<uint16_t *>(myInfoBuf));
             }
         }
-        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 1, &myInfoBuf, &size_16)) {
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 1, &myInfoBuf, &size_64)) {
             latestNvvidconv = *(static_cast<uint16_t *>(myInfoBuf));
         }
-        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 2, &myInfoBuf, &size_16)) {
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 2, &myInfoBuf, &size_64)) {
             latestJpegenc = *(static_cast<uint16_t *>(myInfoBuf));
         }
-        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 3, &myInfoBuf, &size_16)) {
+        if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 3, &myInfoBuf, &size_64)) {
             latestRtpjpegpay = *(static_cast<uint16_t *>(myInfoBuf));
         }
         if (gst_rtp_buffer_get_extension_twobytes_header(&rtp_buf, &appbits, 1, 4, &myInfoBuf, &size_64)) {

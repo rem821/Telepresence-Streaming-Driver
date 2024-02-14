@@ -4,9 +4,9 @@
 #include <thread>
 #include "logging.h"
 
-const std::string MONO_VIDEO_CAPS_NVMM = "video/x-raw(memory:NVMM),width=(int)1920,height=(int)1080,framerate=(fraction)30/1,format=(string)NV12";
-const std::string MONO_VIDEO_CAPS = "video/x-raw,width=(int)1920,height=(int)1080,framerate=(fraction)30/1,format=(string)NV12";
-const std::string DEST_IP = "192.168.1.100";
+const std::string MONO_VIDEO_CAPS_NVMM = "video/x-raw(memory:NVMM),width=(int)1920,height=(int)1080,framerate=(fraction)60/1,format=(string)NV12";
+const std::string MONO_VIDEO_CAPS = "video/x-raw,width=(int)1920,height=(int)1080,framerate=(fraction)60/1,format=(string)NV12";
+const std::string DEST_IP = "192.168.1.110";
 
 constexpr int PORT_LEFT = 8554;
 constexpr int PORT_RIGHT = 8556;
@@ -45,7 +45,7 @@ void RunCameraStreamingPipeline(const int sensorId, const int port) {
             " ! identity name=nvarguscamerasrc_identity"
             " ! clockoverlay"
             " ! identity name=nvvidconv_identity"
-            " ! jpegenc quality=70"
+            " ! jpegenc quality=85"
             " ! identity name=jpegenc_identity"
             " ! rtpjpegpay"
             " ! identity name=rtpjpegpay_identity"
@@ -73,12 +73,12 @@ void RunCameraStreamingPipeline(const int sensorId, const int port) {
 void RunReceivingPipeline(const int &port) {
     std::ostringstream oss;
     oss << "udpsrc port=" << port
-            << " ! application/x-rtp,encoding-name=JPEG,payload=26,framerate=5/1 ! identity name=udpsrc_identity "
+            << " ! application/x-rtp,encoding-name=JPEG,payload=26 ! identity name=udpsrc_identity "
             "! rtpjpegdepay ! identity name=rtpjpegdepay_identity "
             "! jpegdec ! video/x-raw,format=RGB ! identity name=jpegdec_identity "
             "! identity ! identity name=queue_identity "
             "! videoconvert ! identity name=videoconvert_identity "
-            // Funny element "! vertigotv ! videoconvert "
+            //"! vertigotv zoom-speed=1.0 speed=0.0 ! videoconvert "
             "! identity ! identity name=videoflip_identity "
             //"! identity ! identity name=videoflip_identity "
             "! fpsdisplaysink sync=false";
