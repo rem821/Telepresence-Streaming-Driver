@@ -29,6 +29,15 @@ inline uint64_t latestRtpJpegpayTimestamp = 0;
 
 inline bool finishing = false;
 
+inline uint64_t GetCurrentUs() {
+    using namespace std::chrono;
+
+    auto currentTime = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(currentTime.time_since_epoch());
+    auto timeMicro = duration.count();
+    return timeMicro;
+}
+
 inline uint16_t GetFrameId(const std::string &pipelineName) {
     return pipelineName == "pipeline_left" ? cameraLeftFrameId : cameraRightFrameId;
 }
@@ -131,11 +140,7 @@ inline void SaveLogFilesReceiving() {
 
 inline void OnIdentityHandoffCameraStreaming(const GstElement *identity, GstBuffer *buffer, gpointer data) {
     if (finishing) { return; }
-    using namespace std::chrono;
-
-    const auto tp = std::chrono::time_point_cast<microseconds>(steady_clock::now());
-    const auto tmp = std::chrono::duration_cast<microseconds>(tp.time_since_epoch());
-    const auto timeMicro = tmp.count();
+    const auto timeMicro = GetCurrentUs();
 
     const std::string pipelineName = identity->object.parent->name;
 
