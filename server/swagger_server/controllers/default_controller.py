@@ -1,3 +1,5 @@
+import subprocess
+import threading
 from itertools import filterfalse
 
 import connexion
@@ -22,6 +24,37 @@ from swagger_server import util
 stream_state = StreamState(False, "192.168.1.100", 8554, "JPEG", "400k",
                            Apiv1streamupdateResolution(1920, 1080), "stereo", 30)
 
+exec_path = "/home/standa/Desktop/Projekty/Telepresence-Streaming-Driver/cmake-build-debug/telepresence_streaming_driver"
+process = None
+streaming_thread = None
+
+def run_streaming_process():
+    global process
+    print("Starting streaming process!")
+
+    process = subprocess.Popen(
+        [exec_path, "first_arg"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,  # Ensures the output is in string format rather than bytes
+        bufsize=1,  # Line-buffered output
+    )
+
+    # Read stdout line by line in real-time
+    for stdout_line in iter(process.stdout.readline, ""):
+        print(stdout_line, end="")  # Print each line as it is received
+
+    # Wait for the process to finish and capture any remaining output
+    process.stdout.close()  # Close stdout
+    process.wait()
+
+    # Handle stderr
+    stderr = process.stderr.read()
+    if stderr:
+        print(f'[stderr]\n{stderr}')
+
+    print("The streaming process has ended")
+
 
 def api_v1_stream_start_post(body):  # noqa: E501
     """Start the video streaming with configuration.
@@ -33,7 +66,7 @@ def api_v1_stream_start_post(body):  # noqa: E501
 
     :rtype: InlineResponse200
     """
-    global stream_state
+    global stream_state, streaming_thread, process
 
     if stream_state.is_streaming:
         return "Stream already running!"
@@ -43,6 +76,10 @@ def api_v1_stream_start_post(body):  # noqa: E501
         print(body)
         stream_state = StreamState(True, body.ip_address, body.port, body.codec, body.bitrate, body.resolution,
                                    body.video_mode, body.fps)
+
+        streaming_thread = threading.Thread(target=run_streaming_process)
+        streaming_thread.start()
+
     else:
         return "Missing body!"
 
@@ -70,11 +107,15 @@ def api_v1_stream_stop_post():  # noqa: E501
 
     :rtype: InlineResponse2001
     """
-    global stream_state
+    global stream_state, streaming_thread, process
 
     if not stream_state.is_streaming:
         return "Stream already stopped!"
+
+    process.terminate()
+    streaming_thread.join()
     stream_state.is_streaming = False
+    print("The streaming process has been killed!")
 
     return stream_state
 
@@ -94,7 +135,8 @@ def api_v1_stream_update_put(body):  # noqa: E501
     if connexion.request.is_json:
         body = StreamUpdateBody.from_dict(connexion.request.get_json())  # noqa: E501
         print(body)
-        stream_state = StreamState(stream_state.is_streaming, body.ip_address, body.port, body.codec, body.bitrate, body.resolution,
+        stream_state = StreamState(stream_state.is_streaming, body.ip_address, body.port, body.codec, body.bitrate,
+                                   body.resolution,
                                    body.video_mode, body.fps)
     else:
         return "Missing body!"
