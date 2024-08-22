@@ -15,15 +15,19 @@ class StreamUpdateBody(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, ip_address: str=None, port: int=None, codec: str=None, bitrate: str=None, resolution: Apiv1streamupdateResolution=None, video_mode: str=None, fps: int=None):  # noqa: E501
+    def __init__(self, ip_address: str=None, port_left: int=None, port_right: int=None, codec: str=None, encoding_quality: int=None, bitrate: str=None, resolution: Apiv1streamupdateResolution=None, video_mode: str=None, fps: int=None):  # noqa: E501
         """StreamUpdateBody - a model defined in Swagger
 
         :param ip_address: The ip_address of this StreamUpdateBody.  # noqa: E501
         :type ip_address: str
-        :param port: The port of this StreamUpdateBody.  # noqa: E501
-        :type port: int
+        :param port_left: The port_left of this StreamUpdateBody.  # noqa: E501
+        :type port_left: int
+        :param port_right: The port_right of this StreamUpdateBody.  # noqa: E501
+        :type port_right: int
         :param codec: The codec of this StreamUpdateBody.  # noqa: E501
         :type codec: str
+        :param encoding_quality: The encoding_quality of this StreamUpdateBody.  # noqa: E501
+        :type encoding_quality: int
         :param bitrate: The bitrate of this StreamUpdateBody.  # noqa: E501
         :type bitrate: str
         :param resolution: The resolution of this StreamUpdateBody.  # noqa: E501
@@ -35,8 +39,10 @@ class StreamUpdateBody(Model):
         """
         self.swagger_types = {
             'ip_address': str,
-            'port': int,
+            'port_left': int,
+            'port_right': int,
             'codec': str,
+            'encoding_quality': int,
             'bitrate': str,
             'resolution': Apiv1streamupdateResolution,
             'video_mode': str,
@@ -45,16 +51,20 @@ class StreamUpdateBody(Model):
 
         self.attribute_map = {
             'ip_address': 'ip_address',
-            'port': 'port',
+            'port_left': 'port_left',
+            'port_right': 'port_right',
             'codec': 'codec',
+            'encoding_quality': 'encoding_quality',
             'bitrate': 'bitrate',
             'resolution': 'resolution',
             'video_mode': 'video_mode',
             'fps': 'fps'
         }
         self._ip_address = ip_address
-        self._port = port
+        self._port_left = port_left
+        self._port_right = port_right
         self._codec = codec
+        self._encoding_quality = encoding_quality
         self._bitrate = bitrate
         self._resolution = resolution
         self._video_mode = video_mode
@@ -93,25 +103,46 @@ class StreamUpdateBody(Model):
         self._ip_address = ip_address
 
     @property
-    def port(self) -> int:
-        """Gets the port of this StreamUpdateBody.
+    def port_left(self) -> int:
+        """Gets the port_left of this StreamUpdateBody.
 
 
-        :return: The port of this StreamUpdateBody.
+        :return: The port_left of this StreamUpdateBody.
         :rtype: int
         """
-        return self._port
+        return self._port_left
 
-    @port.setter
-    def port(self, port: int):
-        """Sets the port of this StreamUpdateBody.
+    @port_left.setter
+    def port_left(self, port_left: int):
+        """Sets the port_left of this StreamUpdateBody.
 
 
-        :param port: The port of this StreamUpdateBody.
-        :type port: int
+        :param port_left: The port_left of this StreamUpdateBody.
+        :type port_left: int
         """
 
-        self._port = port
+        self._port_left = port_left
+
+    @property
+    def port_right(self) -> int:
+        """Gets the port_right of this StreamUpdateBody.
+
+
+        :return: The port_right of this StreamUpdateBody.
+        :rtype: int
+        """
+        return self._port_right
+
+    @port_right.setter
+    def port_right(self, port_right: int):
+        """Sets the port_right of this StreamUpdateBody.
+
+
+        :param port_right: The port_right of this StreamUpdateBody.
+        :type port_right: int
+        """
+
+        self._port_right = port_right
 
     @property
     def codec(self) -> str:
@@ -139,6 +170,27 @@ class StreamUpdateBody(Model):
             )
 
         self._codec = codec
+
+    @property
+    def encoding_quality(self) -> int:
+        """Gets the encoding_quality of this StreamUpdateBody.
+
+
+        :return: The encoding_quality of this StreamUpdateBody.
+        :rtype: int
+        """
+        return self._encoding_quality
+
+    @encoding_quality.setter
+    def encoding_quality(self, encoding_quality: int):
+        """Sets the encoding_quality of this StreamUpdateBody.
+
+
+        :param encoding_quality: The encoding_quality of this StreamUpdateBody.
+        :type encoding_quality: int
+        """
+
+        self._encoding_quality = encoding_quality
 
     @property
     def bitrate(self) -> str:

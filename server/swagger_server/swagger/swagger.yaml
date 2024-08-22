@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: Camera Streaming API
   description: API for controlling the camera streaming module.
-  version: 1.0.0
+  version: 1.0.1
 servers:
 - url: /
 paths:
@@ -98,18 +98,24 @@ components:
         ip_address:
           type: string
           example: 192.168.1.100
-        port:
+        port_left:
           type: integer
-          example: 8080
+          example: 8554
+        port_right:
+          type: integer
+          example: 8556
         codec:
           type: string
-          example: H264
+          example: JPEG
           enum:
           - H264
           - H265
           - VP8
           - VP9
           - JPEG
+        encoding_quality:
+          type: integer
+          example: 85
         bitrate:
           type: string
           example: 4000k
@@ -130,9 +136,11 @@ components:
       - required:
         - bitrate
         - codec
+        - encoding_quality
         - fps
         - ip_address
-        - port
+        - port_left
+        - port_right
         - resolution
         - video_mode
         type: object
@@ -193,18 +201,24 @@ components:
         ip_address:
           type: string
           example: 192.168.1.100
-        port:
+        port_left:
           type: integer
-          example: 8080
+          example: 8554
+        port_right:
+          type: integer
+          example: 8556
         codec:
           type: string
-          example: H264
+          example: JPEG
           enum:
           - H264
           - H265
           - VP8
           - VP9
           - JPEG
+        encoding_quality:
+          type: integer
+          example: 85
         bitrate:
           type: string
           example: 4000k

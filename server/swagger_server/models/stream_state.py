@@ -16,17 +16,21 @@ class StreamState(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, is_streaming: bool=None, ip_address: str=None, port: int=None, codec: str=None, bitrate: str=None, resolution: Apiv1streamupdateResolution=None, video_mode: str=None, fps: int=None):  # noqa: E501
+    def __init__(self, is_streaming: bool=None, ip_address: str=None, port_left: int=None, port_right: int=None, codec: str=None, encoding_quality: int=None, bitrate: str=None, resolution: Apiv1streamupdateResolution=None, video_mode: str=None, fps: int=None):  # noqa: E501
         """StreamState - a model defined in Swagger
 
         :param is_streaming: The is_streaming of this StreamState.  # noqa: E501
         :type is_streaming: bool
         :param ip_address: The ip_address of this StreamState.  # noqa: E501
         :type ip_address: str
-        :param port: The port of this StreamState.  # noqa: E501
-        :type port: int
+        :param port_left: The port_left of this StreamState.  # noqa: E501
+        :type port_left: int
+        :param port_right: The port_right of this StreamState.  # noqa: E501
+        :type port_right: int
         :param codec: The codec of this StreamState.  # noqa: E501
         :type codec: str
+        :param encoding_quality: The encoding_quality of this StreamState.  # noqa: E501
+        :type encoding_quality: int
         :param bitrate: The bitrate of this StreamState.  # noqa: E501
         :type bitrate: str
         :param resolution: The resolution of this StreamState.  # noqa: E501
@@ -39,8 +43,10 @@ class StreamState(Model):
         self.swagger_types = {
             'is_streaming': bool,
             'ip_address': str,
-            'port': int,
+            'port_left': int,
+            'port_right': int,
             'codec': str,
+            'encoding_quality': int,
             'bitrate': str,
             'resolution': Apiv1streamupdateResolution,
             'video_mode': str,
@@ -50,8 +56,10 @@ class StreamState(Model):
         self.attribute_map = {
             'is_streaming': 'is_streaming',
             'ip_address': 'ip_address',
-            'port': 'port',
+            'port_left': 'port_left',
+            'port_right': 'port_right',
             'codec': 'codec',
+            'encoding_quality': 'encoding_quality',
             'bitrate': 'bitrate',
             'resolution': 'resolution',
             'video_mode': 'video_mode',
@@ -59,8 +67,10 @@ class StreamState(Model):
         }
         self._is_streaming = is_streaming
         self._ip_address = ip_address
-        self._port = port
+        self._port_left = port_left
+        self._port_right = port_right
         self._codec = codec
+        self._encoding_quality = encoding_quality
         self._bitrate = bitrate
         self._resolution = resolution
         self._video_mode = video_mode
@@ -120,25 +130,46 @@ class StreamState(Model):
         self._ip_address = ip_address
 
     @property
-    def port(self) -> int:
-        """Gets the port of this StreamState.
+    def port_left(self) -> int:
+        """Gets the port_left of this StreamState.
 
 
-        :return: The port of this StreamState.
+        :return: The port_left of this StreamState.
         :rtype: int
         """
-        return self._port
+        return self._port_left
 
-    @port.setter
-    def port(self, port: int):
-        """Sets the port of this StreamState.
+    @port_left.setter
+    def port_left(self, port_left: int):
+        """Sets the port_left of this StreamState.
 
 
-        :param port: The port of this StreamState.
-        :type port: int
+        :param port_left: The port_left of this StreamState.
+        :type port_left: int
         """
 
-        self._port = port
+        self._port_left = port_left
+
+    @property
+    def port_right(self) -> int:
+        """Gets the port_right of this StreamState.
+
+
+        :return: The port_right of this StreamState.
+        :rtype: int
+        """
+        return self._port_right
+
+    @port_right.setter
+    def port_right(self, port_right: int):
+        """Sets the port_right of this StreamState.
+
+
+        :param port_right: The port_right of this StreamState.
+        :type port_right: int
+        """
+
+        self._port_right = port_right
 
     @property
     def codec(self) -> str:
@@ -166,6 +197,27 @@ class StreamState(Model):
             )
 
         self._codec = codec
+
+    @property
+    def encoding_quality(self) -> int:
+        """Gets the encoding_quality of this StreamState.
+
+
+        :return: The encoding_quality of this StreamState.
+        :rtype: int
+        """
+        return self._encoding_quality
+
+    @encoding_quality.setter
+    def encoding_quality(self, encoding_quality: int):
+        """Sets the encoding_quality of this StreamState.
+
+
+        :param encoding_quality: The encoding_quality of this StreamState.
+        :type encoding_quality: int
+        """
+
+        self._encoding_quality = encoding_quality
 
     @property
     def bitrate(self) -> str:

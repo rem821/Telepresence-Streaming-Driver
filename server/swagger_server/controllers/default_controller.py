@@ -21,12 +21,13 @@ from swagger_server.models.stream_update_body import StreamUpdateBody  # noqa: E
 from swagger_server import util
 
 # This object represents the current state and is mutated by the setter endpoints
-stream_state = StreamState(False, "192.168.1.100", 8554, "JPEG", "400k",
+stream_state = StreamState(False, "192.168.1.100", 8554, 8556, "JPEG", 85, "400k",
                            Apiv1streamupdateResolution(1920, 1080), "stereo", 30)
 
 exec_path = "/home/standa/Desktop/Projekty/Telepresence-Streaming-Driver/cmake-build-debug/telepresence_streaming_driver"
 process = None
 streaming_thread = None
+
 
 def run_streaming_process():
     global stream_state, process
@@ -35,7 +36,19 @@ def run_streaming_process():
     stream_state.is_streaming = True
 
     process = subprocess.Popen(
-        [exec_path, "first_arg"],
+        [
+            exec_path,
+            str(stream_state.ip_address),
+            str(stream_state.port_left),
+            str(stream_state.port_right),
+            str(stream_state.codec),
+            str(stream_state.encoding_quality),
+            str(stream_state.bitrate),
+            str(stream_state.resolution.width),
+            str(stream_state.resolution.height),
+            str(stream_state.video_mode),
+            str(stream_state.fps)
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,  # Ensures the output is in string format rather than bytes
@@ -77,7 +90,8 @@ def api_v1_stream_start_post(body):  # noqa: E501
     if connexion.request.is_json:
         body = RequiredStreamConfiguration.from_dict(connexion.request.get_json())  # noqa: E501
         print(body)
-        stream_state = StreamState(False, body.ip_address, body.port, body.codec, body.bitrate, body.resolution,
+        stream_state = StreamState(False, body.ip_address, body.port_left, body.port_right, body.codec,
+                                   body.encoding_quality, body.bitrate, body.resolution,
                                    body.video_mode, body.fps)
 
         streaming_thread = threading.Thread(target=run_streaming_process)
@@ -132,14 +146,23 @@ def api_v1_stream_update_put(body):  # noqa: E501
 
     :rtype: InlineResponse2002
     """
-    global stream_state
+    global stream_state, streaming_thread, process
 
     if connexion.request.is_json:
         body = StreamUpdateBody.from_dict(connexion.request.get_json())  # noqa: E501
         print(body)
-        stream_state = StreamState(stream_state.is_streaming, body.ip_address, body.port, body.codec, body.bitrate,
+        stream_state = StreamState(stream_state.is_streaming, body.ip_address, body.port_left, body.port_right,
+                                   body.codec, body.encoding_quality, body.bitrate,
                                    body.resolution,
                                    body.video_mode, body.fps)
+        if stream_state.is_streaming:
+            process.terminate()
+            streaming_thread.join()
+            print("The streaming process has been killed!")
+
+        streaming_thread = threading.Thread(target=run_streaming_process)
+        streaming_thread.start()
+
     else:
         return "Missing body!"
 

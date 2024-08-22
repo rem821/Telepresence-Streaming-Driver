@@ -12,8 +12,13 @@ add_definitions(${GSTREAMER_CFLAGS_OTHER})
 
 #add_definitions(-DJETSON)
 
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(telepresence_streaming_driver main.cpp)
+target_compile_definitions(telepresence_streaming_driver PRIVATE STREAMING)
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMER_RTP_INCLUDE_DIRS})
+add_executable(telepresence_receiving_driver main.cpp)
 
-target_link_libraries(${PROJECT_NAME} ${GSTREAMER_LIBRARIES} ${GSTREAMER_RTP_LIBRARIES})
+target_include_directories(telepresence_streaming_driver PRIVATE ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMER_RTP_INCLUDE_DIRS})
+target_include_directories(telepresence_receiving_driver PRIVATE ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMER_RTP_INCLUDE_DIRS})
+
+target_link_libraries(telepresence_streaming_driver ${GSTREAMER_LIBRARIES} ${GSTREAMER_RTP_LIBRARIES})
+target_link_libraries(telepresence_receiving_driver ${GSTREAMER_LIBRARIES} ${GSTREAMER_RTP_LIBRARIES})
