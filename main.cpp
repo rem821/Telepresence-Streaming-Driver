@@ -135,7 +135,14 @@ int RunBoth() {
 }
 
 int main(int argc, char *argv[]) {
-    gst_init(&argc, &argv);
+
+    if(argc != 9 && argc != 0) {
+        std::cerr << "Incorrect number of input parameters!\nFor the correct usage pass the configuration arguments in the following order:\n  1. Destination IP\n  2. Port Left\n  3. Port Right\n  4. Codec\n  5. Target Bitrate\n  6. Horizontal Resolution\n  7. Vertical Resolution\n  8. stereo/mono\n  9. FPS\n";
+        return 1;
+    }
+    std::cout << "Telepresence streaming driver has received the following configuration arguments:\n  1. Destination IP: " << argv[0] << "\n  2. Port Left: " << argv[1] << "\n  3. Port Right: " << argv[2] << "\n 4. Codec: " << argv[3] << "\n  5. Target Bitrate: " << argv[4] << "\n  6. Horizontal Resolution: " << argv[5] << "\n  7. Vertical Resolution: " << argv[6] << "\n  8. stereo/mono: " << argv[7] << "\n  9. FPS: " << argv[8] << "\n";
+
+    gst_init(nullptr, nullptr);
     gst_debug_set_default_threshold(GST_LEVEL_ERROR);
 
 #ifdef JETSON

@@ -20,7 +20,7 @@ from swagger_server.models.stream_state import StreamState  # noqa: E501
 from swagger_server.models.stream_update_body import StreamUpdateBody  # noqa: E501
 from swagger_server import util
 
-# This object  represent the current state and is mutated by the setter endpoints
+# This object represents the current state and is mutated by the setter endpoints
 stream_state = StreamState(False, "192.168.1.100", 8554, "JPEG", "400k",
                            Apiv1streamupdateResolution(1920, 1080), "stereo", 30)
 
@@ -29,8 +29,10 @@ process = None
 streaming_thread = None
 
 def run_streaming_process():
-    global process
+    global stream_state, process
     print("Starting streaming process!")
+
+    stream_state.is_streaming = True
 
     process = subprocess.Popen(
         [exec_path, "first_arg"],
@@ -53,6 +55,7 @@ def run_streaming_process():
     if stderr:
         print(f'[stderr]\n{stderr}')
 
+    stream_state.is_streaming = False
     print("The streaming process has ended")
 
 
@@ -74,7 +77,7 @@ def api_v1_stream_start_post(body):  # noqa: E501
     if connexion.request.is_json:
         body = RequiredStreamConfiguration.from_dict(connexion.request.get_json())  # noqa: E501
         print(body)
-        stream_state = StreamState(True, body.ip_address, body.port, body.codec, body.bitrate, body.resolution,
+        stream_state = StreamState(False, body.ip_address, body.port, body.codec, body.bitrate, body.resolution,
                                    body.video_mode, body.fps)
 
         streaming_thread = threading.Thread(target=run_streaming_process)
@@ -114,7 +117,6 @@ def api_v1_stream_stop_post():  # noqa: E501
 
     process.terminate()
     streaming_thread.join()
-    stream_state.is_streaming = False
     print("The streaming process has been killed!")
 
     return stream_state
