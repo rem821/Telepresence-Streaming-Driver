@@ -1,7 +1,9 @@
 #include <iostream>
+#include <csignal>
 #include <chrono>
 #include <gst/gst.h>
 #include <thread>
+#include <mutex>
 #include "logging.h"
 
 enum Codec {
@@ -25,12 +27,20 @@ struct StreamingConfig {
 };
 
 StreamingConfig DEFAULT_STREAMING_CONFIG = {"192.168.1.100", 8554, 8556, Codec::JPEG, 85, 400000, 1920, 1080, VideoMode::STEREO, 60};
+std::vector<GstElement *> pipelines = {nullptr, nullptr};
+std::mutex pipelines_mutex;
+
+void StopPipeline(GstElement *pipeline) {
+    std::cout << "Stopping the pipeline!\n";
+    gst_element_set_state(pipeline, GST_STATE_NULL);
+    gst_object_unref(pipeline);
+}
 
 void SetPipelineToPlayingState(GstElement *pipeline, const std::string &name) {
     const auto ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
         std::cerr << "Unable to set the pipeline to the playing state." << std::endl;
-        gst_object_unref(pipeline);
+        StopPipeline(pipeline);
         return;
     }
 
@@ -44,8 +54,7 @@ void SetPipelineToPlayingState(GstElement *pipeline, const std::string &name) {
     }
     gst_message_unref(msg);
     gst_object_unref(bus);
-    gst_element_set_state(pipeline, GST_STATE_NULL);
-    gst_object_unref(pipeline);
+    StopPipeline(pipeline);
 }
 
 void RunCameraStreamingPipeline(const int sensorId, const StreamingConfig &streamingConfig) {
@@ -76,7 +85,11 @@ void RunCameraStreamingPipeline(const int sensorId, const StreamingConfig &strea
         " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << port;
 #endif
 
-    const auto pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
+    {
+        std::lock_guard<std::mutex> lock(pipelines_mutex);
+        pipelines[sensorId] = gst_parse_launch(oss.str().c_str(), nullptr);
+    }
+    const auto pipeline = pipelines[sensorId];
     const std::string side = sensorId == 0 ? "left" : "right";
     const std::string pipelineName = "pipeline_" + side;
     gst_element_set_name(pipeline, pipelineName.c_str());
@@ -108,7 +121,11 @@ void RunReceivingPipeline(const int sensorId, const StreamingConfig &streamingCo
         //"! identity ! identity name=videoflip_identity "
         "! fpsdisplaysink sync=false";
 
-    auto *pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
+    {
+        std::lock_guard<std::mutex> lock(pipelines_mutex);
+        pipelines[sensorId] = gst_parse_launch(oss.str().c_str(), nullptr);
+    }
+    const auto pipeline = pipelines[sensorId];
     const std::string side = sensorId == 0 ? "left" : "right";
     const std::string pipelineName = "pipeline_" + side;
     gst_element_set_name(pipeline, pipelineName.c_str());
@@ -189,8 +206,18 @@ VideoMode GetVideoModeFromArg(std::string &videoModeString) {
     }
 }
 
-int main(int argc, char *argv[]) {
+void SignalHandler(int signum) {
+    std::cout << "Interrupt signal (" << signum << ") received. Will be stopping " << pipelines.size() << " pipelines!\n";
 
+    std::lock_guard<std::mutex> lock(pipelines_mutex);
+    for(auto pipeline: pipelines) {
+        StopPipeline(pipeline);
+    }
+
+    exit(signum);
+}
+
+int main(int argc, char *argv[]) {
     std::vector<std::string> argList(argv + 1, argv + argc);
 
     StreamingConfig streamingConfig;
@@ -238,6 +265,8 @@ int main(int argc, char *argv[]) {
 
     gst_init(nullptr, nullptr);
     gst_debug_set_default_threshold(GST_LEVEL_ERROR);
+
+    signal(SIGTERM, SignalHandler);
 
 #ifdef STREAMING
     return RunCameraStreaming(streamingConfig);
