@@ -5,26 +5,7 @@
 #include <thread>
 #include <mutex>
 #include "logging.h"
-
-enum Codec {
-    JPEG, VP8, VP9, H264, H265
-};
-
-enum VideoMode {
-    STEREO, MONO
-};
-
-struct StreamingConfig {
-    std::string ip{};
-    int portLeft{};
-    int portRight{};
-    Codec codec{}; //TODO: Implement different codecs
-    int encodingQuality{};
-    int bitrate{}; //TODO: Implement rate control
-    int horizontalResolution{}, verticalResolution{}; //TODO: Restrict to specific supported resolutions
-    VideoMode videoMode{};
-    int fps{};
-};
+#include "pipelines.h"
 
 StreamingConfig DEFAULT_STREAMING_CONFIG = {"192.168.1.100", 8554, 8556, Codec::JPEG, 85, 400000, 1920, 1080, VideoMode::STEREO, 60};
 std::vector<GstElement *> pipelines = {nullptr, nullptr};
@@ -58,37 +39,28 @@ void SetPipelineToPlayingState(GstElement *pipeline, const std::string &name) {
 }
 
 void RunCameraStreamingPipeline(const int sensorId, const StreamingConfig &streamingConfig) {
-    int port = sensorId == 0 ? streamingConfig.portLeft : streamingConfig.portRight;
     std::ostringstream oss;
-#ifdef JETSON
-    oss << "nvarguscamerasrc aeantibanding=AeAntibandingMode_Off ee-mode=EdgeEnhancement_Off tnr-mode=NoiseReduction_Off saturation=1.5 sensor-id=" << sensorId
-            << " ! " << "video/x-raw(memory:NVMM),width=(int)" << streamingConfig.horizontalResolution << ",height=(int)" << streamingConfig.verticalResolution << ",framerate=(fraction)"<< streamingConfig.fps <<"/1,format=(string)NV12"
-            << " ! identity name=nvarguscamerasrc_identity"
-            << " ! nvvidconv flip-method=none"
-            << " ! identity name=nvvidconv_identity"
-            << " ! nvjpegenc quality=" << streamingConfig.encodingQuality << " idct-method=ifast"
-            << " ! identity name=jpegenc_identity"
-            << " ! rtpjpegpay"
-            << " ! identity name=rtpjpegpay_identity"
-            << " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << port;
-#else
-    oss << "videotestsrc pattern=" << sensorId <<
-        " ! " << "video/x-raw,width=(int)" << streamingConfig.horizontalResolution << ",height=(int)" << streamingConfig.verticalResolution << ",framerate=(fraction)"
-        << streamingConfig.fps << "/1,format=(string)NV12" <<
-        " ! identity name=nvarguscamerasrc_identity"
-        " ! clockoverlay"
-        " ! identity name=nvvidconv_identity"
-        " ! jpegenc quality=" << streamingConfig.encodingQuality <<
-        " ! identity name=jpegenc_identity"
-        " ! rtpjpegpay"
-        " ! identity name=rtpjpegpay_identity"
-        " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << port;
-#endif
+
+    switch (streamingConfig.codec) {
+        case JPEG:
+            oss = GetJpegStreamingPipeline(streamingConfig, sensorId);
+            break;
+        case VP8:
+            break;
+        case VP9:
+            break;
+        case H264:
+            oss = GetH264StreamingPipeline(streamingConfig, sensorId);
+            break;
+        case H265:
+            break;
+    }
 
     {
         std::lock_guard<std::mutex> lock(pipelines_mutex);
         pipelines[sensorId] = gst_parse_launch(oss.str().c_str(), nullptr);
     }
+
     const auto pipeline = pipelines[sensorId];
     const std::string side = sensorId == 0 ? "left" : "right";
     const std::string pipelineName = "pipeline_" + side;
@@ -108,23 +80,28 @@ void RunCameraStreamingPipeline(const int sensorId, const StreamingConfig &strea
 }
 
 void RunReceivingPipeline(const int sensorId, const StreamingConfig &streamingConfig) {
-    int port = sensorId == 0 ? streamingConfig.portLeft : streamingConfig.portRight;
     std::ostringstream oss;
-    oss << "udpsrc port=" << port <<
-        " ! application/x-rtp,encoding-name=JPEG,payload=26 ! identity name=udpsrc_identity "
-        "! rtpjpegdepay ! identity name=rtpjpegdepay_identity "
-        "! jpegdec ! video/x-raw,format=RGB ! identity name=jpegdec_identity "
-        "! identity ! identity name=queue_identity "
-        "! videoconvert ! identity name=videoconvert_identity "
-        //"! vertigotv zoom-speed=1.0 speed=0.0 ! videoconvert "
-        "! identity ! identity name=videoflip_identity "
-        //"! identity ! identity name=videoflip_identity "
-        "! fpsdisplaysink sync=false";
+
+    switch (streamingConfig.codec) {
+        case JPEG:
+            oss = GetJpegReceivingPipeline(streamingConfig, sensorId);
+            break;
+        case VP8:
+            break;
+        case VP9:
+            break;
+        case H264:
+            oss = GetH264ReceivingPipeline(streamingConfig, sensorId);
+            break;
+        case H265:
+            break;
+    }
 
     {
         std::lock_guard<std::mutex> lock(pipelines_mutex);
         pipelines[sensorId] = gst_parse_launch(oss.str().c_str(), nullptr);
     }
+
     const auto pipeline = pipelines[sensorId];
     const std::string side = sensorId == 0 ? "left" : "right";
     const std::string pipelineName = "pipeline_" + side;
@@ -210,7 +187,7 @@ void SignalHandler(int signum) {
     std::cout << "Interrupt signal (" << signum << ") received. Will be stopping " << pipelines.size() << " pipelines!\n";
 
     std::lock_guard<std::mutex> lock(pipelines_mutex);
-    for(auto pipeline: pipelines) {
+    for (auto pipeline: pipelines) {
         StopPipeline(pipeline);
     }
 
