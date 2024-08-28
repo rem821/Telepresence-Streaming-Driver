@@ -56,13 +56,17 @@ inline std::ostringstream GetH264StreamingPipeline(const StreamingConfig &stream
         << " ! identity name=nvarguscamerasrc_identity"
         << " ! nvvidconv flip-method=none"
         << " ! identity name=nvvidconv_identity"
-        << " ! openh264enc"
+        << " ! nvv4l2h264enc bitrate=10000000 preset-level=3"
         << " ! identity name=jpegenc_identity"
-        << " ! rtph264pay aggregate-mode=none"
+        << " ! rtph264pay"
         << " ! identity name=rtpjpegpay_identity"
         << " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << port;
     return oss;
 }
+
+inline std::ostringstream GetJpegReceivingPipeline(const StreamingConfig &streamingConfig, int sensorId) { return std::ostringstream{}; }
+
+inline std::ostringstream GetH264ReceivingPipeline(const StreamingConfig &streamingConfig, int sensorId) { return std::ostringstream{}; }
 
 #else
 
