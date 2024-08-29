@@ -56,7 +56,7 @@ inline std::ostringstream GetH264StreamingPipeline(const StreamingConfig &stream
         << " ! identity name=nvarguscamerasrc_identity"
         << " ! nvvidconv flip-method=none"
         << " ! identity name=nvvidconv_identity"
-        << " ! nvv4l2h264enc bitrate=10000000 preset-level=3"
+        << " ! nvv4l2h264enc insert-sps-pps=1 bitrate=10000000 preset-level=3"
         << " ! identity name=jpegenc_identity"
         << " ! rtph264pay"
         << " ! identity name=rtpjpegpay_identity"
@@ -113,6 +113,7 @@ inline std::ostringstream GetH264StreamingPipeline(const StreamingConfig &stream
         << streamingConfig.fps << "/1,format=(string)I420" <<
         " ! identity name=nvarguscamerasrc_identity"
         " ! clockoverlay"
+        " ! videoflip method=vertical-flip"
         " ! identity name=nvvidconv_identity"
         " ! openh264enc"
         " ! identity name=jpegenc_identity"
