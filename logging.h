@@ -145,7 +145,7 @@ inline void OnIdentityHandoffCameraStreaming(const GstElement *identity, GstBuff
     const std::string pipelineName = identity->object.parent->name;
 
 
-    if (std::string(identity->object.name) == "nvarguscamerasrc_identity" && !timestampsStreaming[pipelineName].empty()) {
+    if (std::string(identity->object.name) == "camsrc_ident" && !timestampsStreaming[pipelineName].empty()) {
         // Frame successfully sent, new one just got into the pipeline
         timestampsStreaming[pipelineName].clear();
         FrameSent(pipelineName);
@@ -154,7 +154,7 @@ inline void OnIdentityHandoffCameraStreaming(const GstElement *identity, GstBuff
     timestampsStreaming[pipelineName].emplace_back(timeMicro);
 
     // Add metadata to the RTP header on the first call of rtpjpegpay
-    if (std::string(identity->object.name) == "rtpjpegpay_identity" && !IsFrameIncremented(pipelineName)) {
+    if (std::string(identity->object.name) == "rtppay_ident" && !IsFrameIncremented(pipelineName)) {
         timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][0]);
         timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][1]);
         timestampsStreamingFiltered[pipelineName].emplace_back(timestampsStreaming[pipelineName][2]);
@@ -208,7 +208,7 @@ inline void OnIdentityHandoffReceiving(const GstElement *identity, GstBuffer *bu
     const std::string pipelineName = identity->object.parent->name;
     timestampsReceiving[pipelineName].emplace_back(timeMicro);
 
-    if (std::string(identity->object.name) == "udpsrc_identity") {
+    if (std::string(identity->object.name) == "udpsrc_ident") {
         GstRTPBuffer rtp_buf = GST_RTP_BUFFER_INIT;
         gst_rtp_buffer_map(buffer, GST_MAP_READ, &rtp_buf);
         gpointer myInfoBuf = nullptr;
@@ -236,7 +236,7 @@ inline void OnIdentityHandoffReceiving(const GstElement *identity, GstBuffer *bu
         gst_rtp_buffer_unmap(&rtp_buf);
     }
 
-    if (std::string(identity->object.name) == "videoflip_identity") {
+    if (std::string(identity->object.name) == "vidflip_ident") {
         if (!timestampsReceiving[pipelineName].empty()) {
             const unsigned long s = timestampsReceiving[pipelineName].size();
 

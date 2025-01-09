@@ -129,7 +129,7 @@ components:
           - mono
         fps:
           type: integer
-          example: 30
+          example: 60
     RequiredStreamConfiguration:
       allOf:
       - $ref: '#/components/schemas/StreamConfiguration'
@@ -232,7 +232,7 @@ components:
           - mono
         fps:
           type: integer
-          example: 30
+          example: 60
     inline_response_200_2:
       type: object
       properties:

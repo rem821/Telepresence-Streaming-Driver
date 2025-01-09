@@ -66,15 +66,15 @@ void RunCameraStreamingPipeline(const int sensorId, const StreamingConfig &strea
     const std::string pipelineName = "pipeline_" + side;
     gst_element_set_name(pipeline, pipelineName.c_str());
 
-    GstElement *nvarguscamerasrc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "nvarguscamerasrc_identity");
-    GstElement *nvvidconv_identity = gst_bin_get_by_name(GST_BIN(pipeline), "nvvidconv_identity");
-    GstElement *jpegenc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "jpegenc_identity");
-    GstElement *rtpjpegpay_identity = gst_bin_get_by_name(GST_BIN(pipeline), "rtpjpegpay_identity");
+    GstElement *camsrc_ident = gst_bin_get_by_name(GST_BIN(pipeline), "camsrc_ident");
+    GstElement *vidconv_ident = gst_bin_get_by_name(GST_BIN(pipeline), "vidconv_ident");
+    GstElement *enc_ident = gst_bin_get_by_name(GST_BIN(pipeline), "enc_ident");
+    GstElement *rtppay_ident = gst_bin_get_by_name(GST_BIN(pipeline), "rtppay_ident");
 
-    g_signal_connect(nvarguscamerasrc_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(nvvidconv_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(jpegenc_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(rtpjpegpay_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
+    g_signal_connect(camsrc_ident, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
+    g_signal_connect(vidconv_ident, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
+    g_signal_connect(enc_ident, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
+    g_signal_connect(rtppay_ident, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
 
     SetPipelineToPlayingState(pipeline, "camera streaming pipeline");
 }
@@ -107,19 +107,19 @@ void RunReceivingPipeline(const int sensorId, const StreamingConfig &streamingCo
     const std::string pipelineName = "pipeline_" + side;
     gst_element_set_name(pipeline, pipelineName.c_str());
 
-    GstElement *udpsrc_identity = gst_bin_get_by_name(GST_BIN(pipeline), "udpsrc_identity");
-    GstElement *rtpjpegdepay_identity = gst_bin_get_by_name(GST_BIN(pipeline), "rtpjpegdepay_identity");
-    GstElement *jpegdec_identity = gst_bin_get_by_name(GST_BIN(pipeline), "jpegdec_identity");
-    GstElement *queue_identity = gst_bin_get_by_name(GST_BIN(pipeline), "queue_identity");
-    GstElement *videoconvert_identity = gst_bin_get_by_name(GST_BIN(pipeline), "videoconvert_identity");
-    GstElement *videoflip_identity = gst_bin_get_by_name(GST_BIN(pipeline), "videoflip_identity");
+    GstElement *udpsrc_ident = gst_bin_get_by_name(GST_BIN(pipeline), "udpsrc_ident");
+    GstElement *rtpdepay_ident = gst_bin_get_by_name(GST_BIN(pipeline), "rtpdepay_ident");
+    GstElement *dec_ident = gst_bin_get_by_name(GST_BIN(pipeline), "dec_ident");
+    GstElement *queue_ident = gst_bin_get_by_name(GST_BIN(pipeline), "queue_ident");
+    GstElement *vidconv_ident = gst_bin_get_by_name(GST_BIN(pipeline), "vidconv_ident");
+    GstElement *vidflip_ident = gst_bin_get_by_name(GST_BIN(pipeline), "vidflip_ident");
 
-    g_signal_connect(udpsrc_identity, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(rtpjpegdepay_identity, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(jpegdec_identity, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(queue_identity, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(videoconvert_identity, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(videoflip_identity, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
+    g_signal_connect(udpsrc_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
+    g_signal_connect(rtpdepay_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
+    g_signal_connect(dec_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
+    g_signal_connect(queue_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
+    g_signal_connect(vidconv_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
+    g_signal_connect(vidflip_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
 
     SetPipelineToPlayingState(pipeline, "receiving pipeline");
 }

@@ -22,9 +22,9 @@ from swagger_server import util
 
 # This object represents the current state and is mutated by the setter endpoints
 stream_state = StreamState(False, "192.168.1.100", 8554, 8556, "JPEG", 85, "400k",
-                           Apiv1streamupdateResolution(1920, 1080), "stereo", 30)
+                           Apiv1streamupdateResolution(1920, 1080), "stereo", 60)
 
-exec_path = "/home/standa/Desktop/Projekty/Telepresence-Streaming-Driver/cmake-build-debug/telepresence_streaming_driver"
+exec_path = "/home/standa/Desktop/Projekty/Telepresence-Streaming-Driver/build/telepresence_streaming_driver"
 process = None
 streaming_thread = None
 
