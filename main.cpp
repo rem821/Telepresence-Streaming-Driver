@@ -79,6 +79,28 @@ void RunCameraStreamingPipeline(const int sensorId, const StreamingConfig &strea
     SetPipelineToPlayingState(pipeline, "camera streaming pipeline");
 }
 
+void RunCombinedCameraStreamingPipeline(const StreamingConfig &streamingConfig) {
+    std::ostringstream oss;
+    oss = GetCombinedJpegStreamingPipeline(streamingConfig);
+    pipelines[0] = gst_parse_launch(oss.str().c_str(), nullptr);
+    
+    gst_element_set_name(pipelines[0], "combined_pipeline");
+    
+    GstElement *nvarguscamerasrc_identity = gst_bin_get_by_name(GST_BIN(pipelines[0]), "nvarguscamerasrc_identity");
+    GstElement *nvvidconv_identity = gst_bin_get_by_name(GST_BIN(pipelines[0]), "nvvidconv_identity");
+    GstElement *jpegenc_identity = gst_bin_get_by_name(GST_BIN(pipelines[0]), "jpegenc_identity");
+    GstElement *rtpjpegpay_identity = gst_bin_get_by_name(GST_BIN(pipelines[0]), "rtpjpegpay_identity");
+
+    g_signal_connect(nvarguscamerasrc_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
+    g_signal_connect(nvvidconv_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
+    g_signal_connect(jpegenc_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
+    g_signal_connect(rtpjpegpay_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
+
+    std::cout << "Parsed pipeline: " << oss.str().c_str() << std::endl;
+
+    SetPipelineToPlayingState(pipelines[0], "combined camera streaming pipeline");
+}
+
 void RunReceivingPipeline(const int sensorId, const StreamingConfig &streamingConfig) {
     std::ostringstream oss;
 
@@ -125,6 +147,13 @@ void RunReceivingPipeline(const int sensorId, const StreamingConfig &streamingCo
 }
 
 int RunCameraStreaming(const StreamingConfig &streamingConfig) {
+#ifdef COMBINED_STREAMING
+    if(streamingConfig.videoMode == VideoMode::STEREO) {
+        RunCombinedCameraStreamingPipeline(streamingConfig);
+    } else {
+        RunCameraStreamingPipeline(0, streamingConfig);
+    }
+#else
     std::thread cameraPipelineThread0(RunCameraStreamingPipeline, 0, streamingConfig);
     if (streamingConfig.videoMode == VideoMode::STEREO) {
         std::thread cameraPipelineThread1(RunCameraStreamingPipeline, 1, streamingConfig);
@@ -132,7 +161,8 @@ int RunCameraStreaming(const StreamingConfig &streamingConfig) {
     }
 
     cameraPipelineThread0.join();
-
+#endif
+    
     return 0;
 }
 
