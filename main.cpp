@@ -53,6 +53,7 @@ void RunCameraStreamingPipeline(const int sensorId, const StreamingConfig &strea
             oss = GetH264StreamingPipeline(streamingConfig, sensorId);
             break;
         case H265:
+      	    oss = GetH265StreamingPipeline(streamingConfig, sensorId);
             break;
     }
 
@@ -148,14 +149,17 @@ void RunReceivingPipeline(const int sensorId, const StreamingConfig &streamingCo
 
 int RunCameraStreaming(const StreamingConfig &streamingConfig) {
 #ifdef COMBINED_STREAMING
+    std::cout << "Preparing to stream combined video \n";
     if(streamingConfig.videoMode == VideoMode::STEREO) {
         RunCombinedCameraStreamingPipeline(streamingConfig);
     } else {
         RunCameraStreamingPipeline(0, streamingConfig);
     }
 #else
+    std::cout << "Preparing to stream two streams \n";
     std::thread cameraPipelineThread0(RunCameraStreamingPipeline, 0, streamingConfig);
     if (streamingConfig.videoMode == VideoMode::STEREO) {
+	std::cout << "Stereo stream preparation \n";
         std::thread cameraPipelineThread1(RunCameraStreamingPipeline, 1, streamingConfig);
         cameraPipelineThread1.join();
     }
