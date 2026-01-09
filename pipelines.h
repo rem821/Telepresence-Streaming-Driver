@@ -17,10 +17,10 @@ struct StreamingConfig {
     std::string ip{};
     int portLeft{};
     int portRight{};
-    Codec codec{}; //TODO: Implement different codecs
+    Codec codec{};
     int encodingQuality{};
-    int bitrate{}; //TODO: Implement rate control
-    int horizontalResolution{}, verticalResolution{}; //TODO: Restrict to specific supported resolutions
+    int bitrate{};
+    int horizontalResolution{}, verticalResolution{};
     VideoMode videoMode{};
     int fps{};
 };
@@ -40,7 +40,7 @@ inline std::ostringstream GetJpegStreamingPipeline(const StreamingConfig &stream
         << " ! identity name=vidconv_ident"
         << " ! nvjpegenc quality=" << streamingConfig.encodingQuality << " idct-method=ifast"
         << " ! identity name=enc_ident"
-        << " ! rtpjpegpay"
+        << " ! rtpjpegpay mtu=1300"
         << " ! identity name=rtppay_ident"
         << " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << port;
     return oss;
@@ -55,7 +55,7 @@ inline std::ostringstream GetCombinedJpegStreamingPipeline(const StreamingConfig
     	<< " ! identity name=vidconv_ident"
     	<< " ! nvjpegenc quality=" << streamingConfig.encodingQuality
     	<< " ! identity name=enc_ident"
-    	<< " ! rtpjpegpay"
+    	<< " ! rtpjpegpay mtu=1300"
     	<< " ! identity name=rtppay_ident"
     	<< " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << streamingConfig.portLeft
     	<< " nvarguscamerasrc sensor-id=1 ! video/x-raw(memory:NVMM), width=" << streamingConfig.horizontalResolution << ", height=" << streamingConfig.verticalResolution << ", format=NV12, framerate=" << streamingConfig.fps << "/1" 
@@ -77,9 +77,9 @@ inline std::ostringstream GetH264StreamingPipeline(const StreamingConfig &stream
 	<< " ! identity name=camsrc_ident"
 	<< " ! nvvidconv flip-method=vertical-flip"
         << " ! identity name=vidconv_ident"
-        << " ! nvv4l2h264enc insert-sps-pps=1 bitrate=10000000 preset-level=3"
+        << " ! nvv4l2h264enc insert-sps-pps=1 bitrate=" << streamingConfig.bitrate << " preset-level=1"
         << " ! identity name=enc_ident"
-        << " ! rtph264pay"
+        << " ! rtph264pay mtu=1300 config-interval=1 pt=96"
         << " ! identity name=rtppay_ident"
         << " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << port;
     return oss;
@@ -95,9 +95,9 @@ inline std::ostringstream GetH265StreamingPipeline(const StreamingConfig &stream
 	<< " ! identity name=camsrc_ident"
 	<< " ! nvvidconv flip-method=vertical-flip"
         << " ! identity name=vidconv_ident"
-        << " ! nvv4l2h265enc insert-sps-pps=1"
+        << " ! nvv4l2h265enc insert-sps-pps=1 bitrate=" << streamingConfig.bitrate << " preset-level=1"
         << " ! identity name=enc_ident"
-        << " ! rtph265pay config-interval=1"
+        << " ! rtph265pay mtu=1300 config-interval=1 pt=96"
         << " ! identity name=rtppay_ident"
         << " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << port;
     return oss;

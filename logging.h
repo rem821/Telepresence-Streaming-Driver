@@ -32,10 +32,14 @@ inline bool finishing = false;
 inline uint64_t GetCurrentUs() {
     using namespace std::chrono;
 
-    auto currentTime = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(currentTime.time_since_epoch());
-    auto timeMicro = duration.count();
-    return timeMicro;
+    //auto currentTime = high_resolution_clock::now();
+    //auto duration = duration_cast<microseconds>(currentTime.time_since_epoch());
+    //auto timeMicro = duration.count();
+    //return timeMicro;
+
+    struct timespec res{};
+    clock_gettime(CLOCK_REALTIME, &res);
+    return static_cast<uint64_t>(res.tv_sec) * 1'000'000 + res.tv_nsec / 1000;
 }
 
 inline uint16_t GetFrameId(const std::string &pipelineName) {

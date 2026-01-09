@@ -21,7 +21,7 @@ from swagger_server.models.stream_update_body import StreamUpdateBody  # noqa: E
 from swagger_server import util
 
 # This object represents the current state and is mutated by the setter endpoints
-stream_state = StreamState(False, "192.168.1.100", 8554, 8556, "JPEG", 85, "400k",
+stream_state = StreamState(False, "192.168.1.100", 8554, 8556, "JPEG", 60, "4000000",
                            Apiv1streamupdateResolution(1920, 1080), "stereo", 60)
 
 exec_path = "/home/defuser/Telepresence-Streaming-Driver/build/telepresence_streaming_driver"
