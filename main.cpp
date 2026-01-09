@@ -4,8 +4,11 @@
 #include <gst/gst.h>
 #include <thread>
 #include <mutex>
+#include "json.hpp"
 #include "logging.h"
 #include "pipelines.h"
+
+using json = nlohmann::json;
 
 StreamingConfig DEFAULT_STREAMING_CONFIG = {"192.168.1.100", 8554, 8556, Codec::JPEG, 85, 400000, 1920, 1080, VideoMode::STEREO, 60};
 std::vector<GstElement *> pipelines = {nullptr, nullptr};
@@ -80,82 +83,7 @@ void RunCameraStreamingPipeline(const int sensorId, const StreamingConfig &strea
     SetPipelineToPlayingState(pipeline, "camera streaming pipeline");
 }
 
-void RunCombinedCameraStreamingPipeline(const StreamingConfig &streamingConfig) {
-    std::ostringstream oss;
-    oss = GetCombinedJpegStreamingPipeline(streamingConfig);
-    pipelines[0] = gst_parse_launch(oss.str().c_str(), nullptr);
-    
-    gst_element_set_name(pipelines[0], "combined_pipeline");
-    
-    GstElement *nvarguscamerasrc_identity = gst_bin_get_by_name(GST_BIN(pipelines[0]), "nvarguscamerasrc_identity");
-    GstElement *nvvidconv_identity = gst_bin_get_by_name(GST_BIN(pipelines[0]), "nvvidconv_identity");
-    GstElement *jpegenc_identity = gst_bin_get_by_name(GST_BIN(pipelines[0]), "jpegenc_identity");
-    GstElement *rtpjpegpay_identity = gst_bin_get_by_name(GST_BIN(pipelines[0]), "rtpjpegpay_identity");
-
-    g_signal_connect(nvarguscamerasrc_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(nvvidconv_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(jpegenc_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-    g_signal_connect(rtpjpegpay_identity, "handoff", G_CALLBACK(OnIdentityHandoffCameraStreaming), nullptr);
-
-    std::cout << "Parsed pipeline: " << oss.str().c_str() << std::endl;
-
-    SetPipelineToPlayingState(pipelines[0], "combined camera streaming pipeline");
-}
-
-void RunReceivingPipeline(const int sensorId, const StreamingConfig &streamingConfig) {
-    std::ostringstream oss;
-
-    switch (streamingConfig.codec) {
-        case JPEG:
-            oss = GetJpegReceivingPipeline(streamingConfig, sensorId);
-            break;
-        case VP8:
-            break;
-        case VP9:
-            break;
-        case H264:
-            oss = GetH264ReceivingPipeline(streamingConfig, sensorId);
-            break;
-        case H265:
-            break;
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(pipelines_mutex);
-        pipelines[sensorId] = gst_parse_launch(oss.str().c_str(), nullptr);
-    }
-
-    const auto pipeline = pipelines[sensorId];
-    const std::string side = sensorId == 0 ? "left" : "right";
-    const std::string pipelineName = "pipeline_" + side;
-    gst_element_set_name(pipeline, pipelineName.c_str());
-
-    GstElement *udpsrc_ident = gst_bin_get_by_name(GST_BIN(pipeline), "udpsrc_ident");
-    GstElement *rtpdepay_ident = gst_bin_get_by_name(GST_BIN(pipeline), "rtpdepay_ident");
-    GstElement *dec_ident = gst_bin_get_by_name(GST_BIN(pipeline), "dec_ident");
-    GstElement *queue_ident = gst_bin_get_by_name(GST_BIN(pipeline), "queue_ident");
-    GstElement *vidconv_ident = gst_bin_get_by_name(GST_BIN(pipeline), "vidconv_ident");
-    GstElement *vidflip_ident = gst_bin_get_by_name(GST_BIN(pipeline), "vidflip_ident");
-
-    g_signal_connect(udpsrc_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(rtpdepay_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(dec_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(queue_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(vidconv_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-    g_signal_connect(vidflip_ident, "handoff", G_CALLBACK(OnIdentityHandoffReceiving), nullptr);
-
-    SetPipelineToPlayingState(pipeline, "receiving pipeline");
-}
-
 int RunCameraStreaming(const StreamingConfig &streamingConfig) {
-#ifdef COMBINED_STREAMING
-    std::cout << "Preparing to stream combined video \n";
-    if(streamingConfig.videoMode == VideoMode::STEREO) {
-        RunCombinedCameraStreamingPipeline(streamingConfig);
-    } else {
-        RunCameraStreamingPipeline(0, streamingConfig);
-    }
-#else
     std::cout << "Preparing to stream two streams \n";
     std::thread cameraPipelineThread0(RunCameraStreamingPipeline, 0, streamingConfig);
     if (streamingConfig.videoMode == VideoMode::STEREO) {
@@ -165,29 +93,6 @@ int RunCameraStreaming(const StreamingConfig &streamingConfig) {
     }
 
     cameraPipelineThread0.join();
-#endif
-    
-    return 0;
-}
-
-int RunReceiving(const StreamingConfig &streamingConfig) {
-    std::thread receivingPipelineThread0(RunReceivingPipeline, 0, streamingConfig);
-    if (streamingConfig.videoMode == VideoMode::STEREO) {
-        std::thread receivingPipelineThread1(RunReceivingPipeline, 1, streamingConfig);
-        receivingPipelineThread1.join();
-    }
-
-    receivingPipelineThread0.join();
-
-    return 0;
-}
-
-int RunBoth(const StreamingConfig &streamingConfig) {
-    std::thread streamingThread(RunCameraStreaming, streamingConfig);
-    std::thread receivingThread(RunReceiving, streamingConfig);
-    streamingThread.join();
-    receivingThread.join();
-
     return 0;
 }
 
