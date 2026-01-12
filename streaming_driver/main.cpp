@@ -25,7 +25,20 @@ std::atomic<bool> stop_requested{false};
 void StopPipeline(GstElement *pipeline) {
     if (pipeline == nullptr) { return; };
     std::cout << "Stopping the pipeline!\n";
+
+    // Set pipeline to NULL state
     gst_element_set_state(pipeline, GST_STATE_NULL);
+
+    // Wait for state change to complete (with 5 second timeout)
+    GstState state, pending;
+    GstStateChangeReturn ret = gst_element_get_state(pipeline, &state, &pending, 5 * GST_SECOND);
+
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        std::cerr << "Failed to stop pipeline cleanly\n";
+    } else if (ret == GST_STATE_CHANGE_ASYNC) {
+        std::cerr << "Pipeline stop timed out (still in progress)\n";
+    }
+
     gst_object_unref(pipeline);
 }
 
@@ -143,6 +156,13 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
         {
             std::lock_guard<std::mutex> lock(pipelines_mutex);
             pipelines[sensorId] = nullptr;
+        }
+
+        // Give camera hardware time to fully release before rebuilding
+        // Argus camera service needs time to clean up resources
+        if (rebuild && !stop_requested.load()) {
+            std::cout << "Waiting for camera " << sensorId << " to fully release...\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
     }
 }
