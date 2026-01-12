@@ -15,7 +15,7 @@ class StreamUpdateBody(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, ip_address: str=None, port_left: int=None, port_right: int=None, codec: str=None, encoding_quality: int=None, bitrate: str=None, resolution: Apiv1streamupdateResolution=None, video_mode: str=None, fps: int=None):  # noqa: E501
+    def __init__(self, ip_address: str=None, port_left: int=None, port_right: int=None, codec: str=None, encoding_quality: int=None, bitrate: int=None, resolution: Apiv1streamupdateResolution=None, video_mode: str=None, fps: int=None):  # noqa: E501
         """StreamUpdateBody - a model defined in Swagger
 
         :param ip_address: The ip_address of this StreamUpdateBody.  # noqa: E501
@@ -29,7 +29,7 @@ class StreamUpdateBody(Model):
         :param encoding_quality: The encoding_quality of this StreamUpdateBody.  # noqa: E501
         :type encoding_quality: int
         :param bitrate: The bitrate of this StreamUpdateBody.  # noqa: E501
-        :type bitrate: str
+        :type bitrate: int
         :param resolution: The resolution of this StreamUpdateBody.  # noqa: E501
         :type resolution: Apiv1streamupdateResolution
         :param video_mode: The video_mode of this StreamUpdateBody.  # noqa: E501
@@ -43,7 +43,7 @@ class StreamUpdateBody(Model):
             'port_right': int,
             'codec': str,
             'encoding_quality': int,
-            'bitrate': str,
+            'bitrate': int,
             'resolution': Apiv1streamupdateResolution,
             'video_mode': str,
             'fps': int

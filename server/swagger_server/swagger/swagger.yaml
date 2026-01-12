@@ -115,10 +115,10 @@ components:
           - JPEG
         encoding_quality:
           type: integer
-          example: 85
+          example: 60
         bitrate:
-          type: string
-          example: 4000k
+          type: integer
+          example: 4000000
         resolution:
           $ref: '#/components/schemas/apiv1streamupdate_resolution'
         video_mode:
@@ -218,10 +218,10 @@ components:
           - JPEG
         encoding_quality:
           type: integer
-          example: 85
+          example: 60
         bitrate:
-          type: string
-          example: 4000k
+          type: integer
+          example: 4000000
         resolution:
           $ref: '#/components/schemas/apiv1streamupdate_resolution'
         video_mode:
