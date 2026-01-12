@@ -18,7 +18,7 @@ std::vector<GstElement *> pipelines = {nullptr, nullptr};
 std::mutex pipelines_mutex;
 
 std::mutex cfg_mutex;
-StreamingConfig desired_cfg = DEFAULT_STREAMING_CONFIG;
+StreamingConfig desired_cfg = {};
 std::atomic<uint64_t> cfg_version{0};
 std::atomic<bool> stop_requested{false};
 
@@ -80,8 +80,14 @@ GstElement *BuildCameraPipeline(int sensorId, const StreamingConfig &streamingCo
             throw std::runtime_error("Unsupported codec in this build");
     }
 
-    GstElement *pipeline = gst_parse_launch(oss.str().c_str(), nullptr);
     const std::string side = sensorId == 0 ? "left" : "right";
+    const std::string pipelineStr = oss.str();
+
+    std::cout << "=== Building Pipeline for Camera " << sensorId << " (" << side << ") ===\n";
+    std::cout << pipelineStr << "\n";
+    std::cout << "=== End Pipeline ===\n";
+
+    GstElement *pipeline = gst_parse_launch(pipelineStr.c_str(), nullptr);
     gst_element_set_name(pipeline, ("pipeline_" + side).c_str());
 
     GstElement *camsrc_ident = gst_bin_get_by_name(GST_BIN(pipeline), "camsrc_ident");
@@ -106,6 +112,7 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
             std::lock_guard<std::mutex> lk(cfg_mutex);
             cfg = desired_cfg;
             seen_version = cfg_version.load(std::memory_order_relaxed);
+            if (seen_version == 0) continue;
         }
 
         GstElement *pipeline = nullptr;
