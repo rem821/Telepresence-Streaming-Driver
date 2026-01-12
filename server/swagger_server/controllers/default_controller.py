@@ -22,7 +22,7 @@ stream_state = None
 is_streaming = False
 # Get absolute path relative to this script's location
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-exec_path = os.path.abspath(os.path.join(_script_dir, "../../../build/telepresence_streaming_driver"))
+exec_path = os.path.abspath(os.path.join(_script_dir, "../../../streaming_driver/build/telepresence_streaming_driver"))
 process = None
 streaming_thread = None
 
