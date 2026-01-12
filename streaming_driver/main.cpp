@@ -104,6 +104,12 @@ GstElement *BuildCameraPipeline(int sensorId, const StreamingConfig &streamingCo
 }
 
 void RunCameraStreamingPipelineDynamic(int sensorId) {
+    // Stagger camera initialization to avoid Argus contention on startup
+    if (sensorId == 1) {
+        std::cout << "Delaying camera 1 initialization by 1 second...\n";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
     uint64_t seen_version = 0;
 
     while (!stop_requested.load()) {
@@ -113,6 +119,13 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
             cfg = desired_cfg;
             seen_version = cfg_version.load(std::memory_order_relaxed);
             if (seen_version == 0) continue;
+        }
+
+        // In MONO mode, only camera 0 (left) should be active
+        if (cfg.videoMode == VideoMode::MONO && sensorId == 1) {
+            std::cout << "Camera 1 disabled in MONO mode, sleeping...\n";
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
         }
 
         GstElement *pipeline = nullptr;
