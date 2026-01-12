@@ -187,6 +187,39 @@ StreamingConfig ConfigFromJson(const json &c) {
     return out;
 }
 
+std::string CodecToString(Codec codec) {
+    switch (codec) {
+        case JPEG: return "JPEG";
+        case VP8: return "VP8";
+        case VP9: return "VP9";
+        case H264: return "H264";
+        case H265: return "H265";
+        default: return "UNKNOWN";
+    }
+}
+
+std::string VideoModeToString(VideoMode mode) {
+    switch (mode) {
+        case STEREO: return "STEREO";
+        case MONO: return "MONO";
+        default: return "UNKNOWN";
+    }
+}
+
+void DumpConfig(const StreamingConfig &cfg) {
+    std::cout << "=== Configuration Dump ===\n";
+    std::cout << "  IP Address: " << cfg.ip << "\n";
+    std::cout << "  Port Left: " << cfg.portLeft << "\n";
+    std::cout << "  Port Right: " << cfg.portRight << "\n";
+    std::cout << "  Codec: " << CodecToString(cfg.codec) << "\n";
+    std::cout << "  Encoding Quality: " << cfg.encodingQuality << "\n";
+    std::cout << "  Bitrate: " << cfg.bitrate << "\n";
+    std::cout << "  Resolution: " << cfg.horizontalResolution << "x" << cfg.verticalResolution << "\n";
+    std::cout << "  Video Mode: " << VideoModeToString(cfg.videoMode) << "\n";
+    std::cout << "  FPS: " << cfg.fps << "\n";
+    std::cout << "==========================\n";
+}
+
 void SignalHandler(int signum) {
     std::cout << "Interrupt signal (" << signum << ") received. Will be stopping " << pipelines.size() <<
             " pipelines!\n";
@@ -216,6 +249,7 @@ void ControlLoop() {
                     cfg_version.fetch_add(1, std::memory_order_relaxed);
                 }
                 std::cout << "Config updated (version " << cfg_version.load() << ")\n";
+                DumpConfig(cfg);
             } else if (cmd == "stop") {
                 stop_requested.store(true);
                 break;
