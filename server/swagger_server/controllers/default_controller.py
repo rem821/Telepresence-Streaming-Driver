@@ -184,6 +184,9 @@ def api_v1_stream_update_put(body):
     except Exception as e:
         return {"error": f"Invalid configuration: {str(e)}"}
 
+    should_configure = False
+    should_start = False
+
     with state_lock:
         # Merge new config with existing state (update only provided fields)
         if stream_state is None:
@@ -192,9 +195,17 @@ def api_v1_stream_update_put(body):
             stream_state.update(new_config)
 
         if is_streaming:
-            configure_streaming_process()
-            return stream_state
+            should_configure = True
+        else:
+            should_start = True
 
+    # Call configure_streaming_process OUTSIDE the lock to avoid deadlock
+    if should_configure:
+        configure_streaming_process()
+        return stream_state
+
+    if should_start:
         streaming_thread = threading.Thread(target=run_streaming_process, daemon=True)
         streaming_thread.start()
-        return stream_state
+
+    return stream_state
