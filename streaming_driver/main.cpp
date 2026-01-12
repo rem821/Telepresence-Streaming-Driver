@@ -22,6 +22,9 @@ StreamingConfig desired_cfg = {};
 std::atomic<uint64_t> cfg_version{0};
 std::atomic<bool> stop_requested{false};
 
+// Track current config for each sensor to detect what changed
+std::vector<StreamingConfig> current_configs = {DEFAULT_STREAMING_CONFIG, DEFAULT_STREAMING_CONFIG};
+
 void StopPipeline(GstElement *pipeline) {
     if (pipeline == nullptr) { return; };
     std::cout << "Stopping the pipeline!\n";
@@ -103,6 +106,67 @@ GstElement *BuildCameraPipeline(int sensorId, const StreamingConfig &streamingCo
     return pipeline;
 }
 
+bool CanUpdateDynamically(const StreamingConfig &oldCfg, const StreamingConfig &newCfg) {
+    // Check if only quality/bitrate changed (can be updated without rebuild)
+    bool structuralChange = (
+        oldCfg.horizontalResolution != newCfg.horizontalResolution ||
+        oldCfg.verticalResolution != newCfg.verticalResolution ||
+        oldCfg.fps != newCfg.fps ||
+        oldCfg.codec != newCfg.codec ||
+        oldCfg.videoMode != newCfg.videoMode ||
+        oldCfg.ip != newCfg.ip ||
+        oldCfg.portLeft != newCfg.portLeft ||
+        oldCfg.portRight != newCfg.portRight
+    );
+
+    // Can update dynamically if no structural changes
+    return !structuralChange;
+}
+
+bool UpdatePipelineProperties(GstElement *pipeline, const StreamingConfig &newCfg, int sensorId) {
+    if (pipeline == nullptr) {
+        std::cerr << "Cannot update properties - pipeline is null\n";
+        return false;
+    }
+
+    std::cout << "=== Dynamic Property Update for Camera " << sensorId << " ===\n";
+
+    // Find the encoder element by name
+    GstElement *encoder = gst_bin_get_by_name(GST_BIN(pipeline), "encoder");
+    if (encoder == nullptr) {
+        std::cerr << "Failed to find encoder element\n";
+        return false;
+    }
+
+    bool success = true;
+
+    switch (newCfg.codec) {
+        case Codec::JPEG:
+            std::cout << "Updating JPEG quality to " << newCfg.encodingQuality << "\n";
+            g_object_set(encoder, "quality", newCfg.encodingQuality, nullptr);
+            break;
+
+        case Codec::H264:
+        case Codec::H265:
+            std::cout << "Updating bitrate to " << newCfg.bitrate << "\n";
+            g_object_set(encoder, "bitrate", newCfg.bitrate, nullptr);
+            break;
+
+        default:
+            std::cerr << "Unsupported codec for dynamic update\n";
+            success = false;
+            break;
+    }
+
+    gst_object_unref(encoder);
+
+    if (success) {
+        std::cout << "=== Dynamic Update Complete ===\n";
+    }
+
+    return success;
+}
+
 void RunCameraStreamingPipelineDynamic(int sensorId) {
     // Stagger camera initialization to avoid Argus contention on startup
     if (sensorId == 1) {
@@ -149,6 +213,9 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
             continue;
         }
 
+        // Store current config after successful pipeline start
+        current_configs[sensorId] = cfg;
+
         GstBus *bus = gst_element_get_bus(pipeline);
         bool rebuild = false;
 
@@ -165,8 +232,32 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
                 rebuild = true; // EOS/ERROR -> rebuild (or exit if you prefer)
             }
 
-            if (cfg_version.load(std::memory_order_relaxed) != seen_version) {
-                rebuild = true; // config changed
+            // Check for config changes
+            uint64_t current_version = cfg_version.load(std::memory_order_relaxed);
+            if (current_version != seen_version) {
+                // Config changed - read the new config
+                StreamingConfig new_cfg;
+                {
+                    std::lock_guard<std::mutex> lk(cfg_mutex);
+                    new_cfg = desired_cfg;
+                    seen_version = current_version;
+                }
+
+                // Check if we can update dynamically (only quality/bitrate changed)
+                if (CanUpdateDynamically(current_configs[sensorId], new_cfg)) {
+                    std::cout << "Config change detected - applying dynamic update\n";
+                    if (UpdatePipelineProperties(pipeline, new_cfg, sensorId)) {
+                        // Update successful, store new config
+                        current_configs[sensorId] = new_cfg;
+                        // NO rebuild needed!
+                    } else {
+                        std::cerr << "Dynamic update failed, will rebuild pipeline\n";
+                        rebuild = true;
+                    }
+                } else {
+                    std::cout << "Config change requires pipeline rebuild\n";
+                    rebuild = true;
+                }
             }
         }
 

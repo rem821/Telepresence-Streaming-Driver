@@ -38,7 +38,7 @@ inline std::ostringstream GetJpegStreamingPipeline(const StreamingConfig &stream
         << " ! identity name=camsrc_ident"
         << " ! nvvidconv flip-method=vertical-flip"
         << " ! identity name=vidconv_ident"
-        << " ! nvjpegenc quality=" << streamingConfig.encodingQuality << " idct-method=ifast"
+        << " ! nvjpegenc name=encoder quality=" << streamingConfig.encodingQuality << " idct-method=ifast"
         << " ! identity name=enc_ident"
         << " ! rtpjpegpay mtu=1300"
         << " ! identity name=rtppay_ident"
@@ -48,7 +48,7 @@ inline std::ostringstream GetJpegStreamingPipeline(const StreamingConfig &stream
 
 inline std::ostringstream GetCombinedJpegStreamingPipeline(const StreamingConfig &streamingConfig) {
     std::ostringstream oss;
-    
+
     oss << "nvcompositor name=comp sink_0::ypos=0 sink_1::ypos=" << streamingConfig.verticalResolution
     	<< " ! video/x-raw(memory:NVMM), format=RGBA, width=" << streamingConfig.horizontalResolution << ", height=" << streamingConfig.verticalResolution * 2
     	<< " ! nvvidconv flip-method=vertical-flip ! video/x-raw(memory:NVMM), format=NV12, width=" << streamingConfig.horizontalResolution << ", height=" << streamingConfig.verticalResolution * 2
@@ -58,12 +58,12 @@ inline std::ostringstream GetCombinedJpegStreamingPipeline(const StreamingConfig
     	<< " ! rtpjpegpay mtu=1300"
     	<< " ! identity name=rtppay_ident"
     	<< " ! udpsink host=" << streamingConfig.ip << " sync=false port=" << streamingConfig.portLeft
-    	<< " nvarguscamerasrc sensor-id=1 ! video/x-raw(memory:NVMM), width=" << streamingConfig.horizontalResolution << ", height=" << streamingConfig.verticalResolution << ", format=NV12, framerate=" << streamingConfig.fps << "/1" 
+    	<< " nvarguscamerasrc sensor-id=1 ! video/x-raw(memory:NVMM), width=" << streamingConfig.horizontalResolution << ", height=" << streamingConfig.verticalResolution << ", format=NV12, framerate=" << streamingConfig.fps << "/1"
     	<< " ! identity name=camsrc_ident"
     	<< " ! comp.sink_0"
-    	<< " nvarguscamerasrc sensor-id=0 ! video/x-raw(memory:NVMM), width=" << streamingConfig.horizontalResolution << ", height=" << streamingConfig.verticalResolution << ", format=NV12, framerate=" << streamingConfig.fps << "/1" 
+    	<< " nvarguscamerasrc sensor-id=0 ! video/x-raw(memory:NVMM), width=" << streamingConfig.horizontalResolution << ", height=" << streamingConfig.verticalResolution << ", format=NV12, framerate=" << streamingConfig.fps << "/1"
     	<< " ! comp.sink_1";
-    	
+
     return oss;
 }
 
@@ -74,10 +74,10 @@ inline std::ostringstream GetH264StreamingPipeline(const StreamingConfig &stream
     oss << "nvarguscamerasrc aeantibanding=AeAntibandingMode_Off ee-mode=EdgeEnhancement_Off tnr-mode=NoiseReduction_Off saturation=1.2 sensor-id=" << sensorId
         << " ! " << "video/x-raw(memory:NVMM),width=(int)" << streamingConfig.horizontalResolution << ",height=(int)" << streamingConfig.verticalResolution
         << ",framerate=(fraction)" << streamingConfig.fps << "/1,format=(string)NV12"
-	<< " ! identity name=camsrc_ident"
-	<< " ! nvvidconv flip-method=vertical-flip"
+	    << " ! identity name=camsrc_ident"
+	    << " ! nvvidconv flip-method=vertical-flip"
         << " ! identity name=vidconv_ident"
-        << " ! nvv4l2h264enc insert-sps-pps=1 bitrate=" << streamingConfig.bitrate << " preset-level=1"
+        << " ! nvv4l2h264enc name=encoder insert-sps-pps=1 bitrate=" << streamingConfig.bitrate << " preset-level=1"
         << " ! identity name=enc_ident"
         << " ! rtph264pay mtu=1300 config-interval=1 pt=96"
         << " ! identity name=rtppay_ident"
@@ -95,7 +95,7 @@ inline std::ostringstream GetH265StreamingPipeline(const StreamingConfig &stream
 	<< " ! identity name=camsrc_ident"
 	<< " ! nvvidconv flip-method=vertical-flip"
         << " ! identity name=vidconv_ident"
-        << " ! nvv4l2h265enc insert-sps-pps=1 bitrate=" << streamingConfig.bitrate << " preset-level=1"
+        << " ! nvv4l2h265enc name=encoder insert-sps-pps=1 bitrate=" << streamingConfig.bitrate << " preset-level=1"
         << " ! identity name=enc_ident"
         << " ! rtph265pay mtu=1300 config-interval=1 pt=96"
         << " ! identity name=rtppay_ident"
