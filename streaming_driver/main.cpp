@@ -175,6 +175,8 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
     }
 
     uint64_t seen_version = 0;
+    int consecutive_failures = 0;
+    const int MAX_CONSECUTIVE_FAILURES = 5;
 
     while (!stop_requested.load()) {
         StreamingConfig cfg;
@@ -197,7 +199,14 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
             pipeline = BuildCameraPipeline(sensorId, cfg);
         } catch (const std::exception &e) {
             std::cerr << "Build failed: " << e.what() << "\n";
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            consecutive_failures++;
+
+            // Exponential backoff: 200ms, 500ms, 1s, 2s, 5s, then 10s
+            int backoff_ms = consecutive_failures < MAX_CONSECUTIVE_FAILURES ?
+                            (200 * (1 << (consecutive_failures - 1))) : 10000;
+            std::cerr << "Camera " << sensorId << " failed " << consecutive_failures
+                      << " times, waiting " << backoff_ms << "ms before retry\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(backoff_ms));
             continue;
         }
 
@@ -210,10 +219,22 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
         if (gst_element_set_state(pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
             std::cerr << "Unable to set pipeline PLAYING\n";
             StopPipeline(pipeline);
+            consecutive_failures++;
+
+            int backoff_ms = consecutive_failures < MAX_CONSECUTIVE_FAILURES ?
+                            (200 * (1 << (consecutive_failures - 1))) : 10000;
+            std::cerr << "Camera " << sensorId << " failed " << consecutive_failures
+                      << " times, waiting " << backoff_ms << "ms before retry\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(backoff_ms));
             continue;
         }
 
         // Store current config after successful pipeline start
+        // Reset failure counter on success
+        if (consecutive_failures > 0) {
+            std::cout << "Camera " << sensorId << " recovered after " << consecutive_failures << " failures\n";
+        }
+        consecutive_failures = 0;
         current_configs[sensorId] = cfg;
 
         GstBus *bus = gst_element_get_bus(pipeline);
