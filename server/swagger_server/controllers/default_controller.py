@@ -46,6 +46,18 @@ def cfg_dict_from_state(s: dict) -> dict:
     }
 
 
+def stdout_reader_thread(process):
+    """Background thread that continuously drains stdout to prevent pipe blocking."""
+    try:
+        for line in iter(process.stdout.readline, ""):
+            print(line, end="")
+    except Exception as e:
+        print(f"Stdout reader error: {e}")
+    finally:
+        if process.stdout:
+            process.stdout.close()
+
+
 def run_streaming_process():
     global stream_state, is_streaming, process
 
@@ -67,14 +79,14 @@ def run_streaming_process():
             bufsize=1,  # Line-buffered output
         )
 
+    # Start dedicated thread for reading stdout (prevents pipe blocking)
+    stdout_thread = threading.Thread(target=stdout_reader_thread, args=(process,), daemon=True)
+    stdout_thread.start()
+
     # Send initial config immediately after start
     configure_streaming_process()
 
-    # Read stdout line by line in real-time
-    for line in iter(process.stdout.readline, ""):
-        print(line, end="")
-
-    process.stdout.close()
+    # Wait for process to exit (don't block on stdout reading)
     process.wait()
 
     with state_lock:
