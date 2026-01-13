@@ -170,8 +170,8 @@ bool UpdatePipelineProperties(GstElement *pipeline, const StreamingConfig &newCf
 void RunCameraStreamingPipelineDynamic(int sensorId) {
     // Stagger camera initialization to avoid Argus contention on startup
     if (sensorId == 1) {
-        std::cout << "Delaying camera 1 initialization by 1 second...\n";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << "Delaying camera 1 initialization by 100 milliseconds...\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     uint64_t seen_version = 0;
