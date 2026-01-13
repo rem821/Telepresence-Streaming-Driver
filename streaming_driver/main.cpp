@@ -417,6 +417,10 @@ void ControlLoop() {
 int main(int argc, char *argv[]) {
     std::vector<std::string> argList(argv + 1, argv + argc);
 
+    // Disable stdout buffering for real-time logging
+    std::cout.setf(std::ios::unitbuf);
+    std::cerr.setf(std::ios::unitbuf);
+
     gst_init(nullptr, nullptr);
     gst_debug_set_default_threshold(GST_LEVEL_ERROR);
 
