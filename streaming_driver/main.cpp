@@ -176,9 +176,23 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
 
     uint64_t seen_version = 0;
     int consecutive_failures = 0;
-    const int MAX_CONSECUTIVE_FAILURES = 5;
+    const int MAX_CONSECUTIVE_FAILURES = 5;  // After this, just sleep instead of retrying
 
     while (!stop_requested.load()) {
+        // If camera has failed too many times, just sleep and wait for config change
+        if (consecutive_failures >= MAX_CONSECUTIVE_FAILURES) {
+            std::cerr << "Camera " << sensorId << " has failed " << consecutive_failures
+                      << " times. Sleeping for 10s. Send a config update to retry.\n";
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+            // Check if config changed during sleep, if so reset failures and try again
+            uint64_t current_version = cfg_version.load(std::memory_order_relaxed);
+            if (current_version != seen_version) {
+                std::cout << "Config changed, resetting failure counter for camera " << sensorId << "\n";
+                consecutive_failures = 0;
+            }
+            continue;
+        }
+
         StreamingConfig cfg;
         {
             std::lock_guard<std::mutex> lk(cfg_mutex);
@@ -239,6 +253,7 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
 
         GstBus *bus = gst_element_get_bus(pipeline);
         bool rebuild = false;
+        bool error_during_streaming = false;
 
         while (!stop_requested.load() && !rebuild) {
             // 100ms poll so updates can be noticed
@@ -249,8 +264,10 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
             );
 
             if (msg) {
+                std::cerr << "Camera " << sensorId << " received error/EOS during streaming\n";
                 gst_message_unref(msg);
-                rebuild = true; // EOS/ERROR -> rebuild (or exit if you prefer)
+                rebuild = true;
+                error_during_streaming = true;  // Mark that error occurred after start
             }
 
             // Check for config changes
@@ -291,10 +308,25 @@ void RunCameraStreamingPipelineDynamic(int sensorId) {
         }
 
         // Give camera hardware time to fully release before rebuilding
-        // Argus camera service needs time to clean up resources
         if (rebuild && !stop_requested.load()) {
-            std::cout << "Waiting for camera " << sensorId << " to fully release...\n";
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            // If error occurred during streaming, increment failure counter
+            if (error_during_streaming) {
+                consecutive_failures++;
+            }
+
+            // Apply exponential backoff if we have repeated failures
+            if (consecutive_failures > 0) {
+                // Exponential backoff: 200ms, 500ms, 1s, 2s, 5s, then 10s
+                int backoff_ms = consecutive_failures < MAX_CONSECUTIVE_FAILURES ?
+                                            (200 * (1 << (consecutive_failures - 1))) : 10000;
+                std::cerr << "Camera " << sensorId << " had " << consecutive_failures
+                          << " consecutive failures, waiting " << backoff_ms << "ms before retry\n";
+                std::this_thread::sleep_for(std::chrono::milliseconds(backoff_ms));
+            } else {
+                // Normal rebuild (config change), use shorter delay
+                std::cout << "Waiting for camera " << sensorId << " to fully release...\n";
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
         }
     }
 }
