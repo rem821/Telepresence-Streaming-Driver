@@ -8,6 +8,7 @@ destination (servo driver or robot), and returns responses.
 import logging
 import signal
 import socket
+import struct
 import sys
 from typing import Optional, Tuple
 
@@ -157,7 +158,7 @@ class UDPRelayService:
             self._forward_to_robot(data, client_addr)
 
         elif message_type == MessageType.DEBUG_INFO:
-            self.logger.warning(f"Debug info message, handler not yet implemented: {data}")
+            self._handle_debug_info(data, client_addr)
 
         else:
             self.logger.warning(f"Unknown message type from {client_addr[0]}:{client_addr[1]}, dropping")
@@ -215,6 +216,88 @@ class UDPRelayService:
         except Exception as e:
             self.consecutive_errors += 1
             self.logger.error(f"Error forwarding to robot: {e}")
+
+    def _handle_debug_info(self, data: bytes, client_addr: Tuple[str, int]):
+        """
+        Handle debug info message.
+
+        Args:
+            data: Debug info data
+            client_addr: Client address
+
+        Message format (78 bytes):
+            [0x03] [timestamp (uint64)] [frame_id (uint64)] [fps (float)]
+            [vidConv_us (uint64)] [enc_us (uint64)] [rtpPay_us (uint64)] [udpStream_us (uint64)]
+            [rtpDepay_us (uint64)] [dec_us (uint64)] [presentation_us (uint64)]
+            [ntp_offset_us (int64)] [ntp_synced (uint8)] [time_since_ntp_sync_us (uint64)]
+        """
+        try:
+            # Validate packet length
+            expected_length = 1 + 8 + 8 + 4 + 8*7 + 8 + 1 + 8  # 94 bytes
+            if len(data) != expected_length:
+                self.logger.warning(f"Invalid debug info packet length: {len(data)} bytes, expected {expected_length}")
+                return
+
+            # Parse the message
+            offset = 1  # Skip message type byte
+
+            timestamp = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            frame_id = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            fps = struct.unpack('<f', data[offset:offset+4])[0]
+            offset += 4
+
+            vidConv_us = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            enc_us = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            rtpPay_us = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            udpStream_us = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            rtpDepay_us = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            dec_us = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            presentation_us = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            ntp_offset_us = struct.unpack('<q', data[offset:offset+8])[0]
+            offset += 8
+
+            ntp_synced = struct.unpack('<B', data[offset:offset+1])[0]
+            offset += 1
+
+            time_since_ntp_sync_us = struct.unpack('<Q', data[offset:offset+8])[0]
+            offset += 8
+
+            # Log the debug information
+            self.logger.info(
+                f"DEBUG INFO from {client_addr[0]}:{client_addr[1]} - "
+                f"frame_id={frame_id}, fps={fps:.1f}, ts={timestamp}, "
+                f"pipeline_us=[vidConv={vidConv_us}, enc={enc_us}, rtpPay={rtpPay_us}, "
+                f"udpStream={udpStream_us}, rtpDepay={rtpDepay_us}, dec={dec_us}, pres={presentation_us}], "
+                f"ntp=[offset_us={ntp_offset_us}, synced={ntp_synced}, time_since_sync_us={time_since_ntp_sync_us}]"
+            )
+
+            # Reset error counter on success
+            self.consecutive_errors = 0
+
+        except struct.error as e:
+            self.consecutive_errors += 1
+            self.logger.error(f"Error parsing debug info: {e}")
+        except Exception as e:
+            self.consecutive_errors += 1
+            self.logger.error(f"Error handling debug info: {e}")
 
     def _listen_loop(self):
         """
