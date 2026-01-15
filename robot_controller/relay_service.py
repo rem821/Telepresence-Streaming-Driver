@@ -71,7 +71,7 @@ class UDPRelayService:
                 azimuth_max=self.config.tg_azimuth_max,
                 elevation_min=self.config.tg_elevation_min,
                 elevation_max=self.config.tg_elevation_max,
-                speed=self.config.tg_speed,
+                speed_max=self.config.tg_speed_max,
                 speed_multiplier=self.config.tg_speed_multiplier,
                 filter_alpha=self.config.tg_filter_alpha
             )

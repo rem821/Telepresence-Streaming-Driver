@@ -54,7 +54,7 @@ class TGDrivesTranslator(ServoTranslator):
     def __init__(self, servo_ip: str, servo_port: int, timeout: float,
                  azimuth_min: int = -180000, azimuth_max: int = 180000,
                  elevation_min: int = -90000, elevation_max: int = 90000,
-                 speed: int = 100000, speed_multiplier: float = 0.0,
+                 speed_max: int = 1000000, speed_multiplier: float = 0.0,
                  filter_alpha: float = 0.15):
         """
         Initialize TG Drives translator.
@@ -79,7 +79,7 @@ class TGDrivesTranslator(ServoTranslator):
         self.azimuth_max = azimuth_max
         self.elevation_min = elevation_min
         self.elevation_max = elevation_max
-        self.speed = speed
+        self.speed_max = speed_max
         self.speed_multiplier = speed_multiplier
 
         # Filtering
@@ -147,9 +147,9 @@ class TGDrivesTranslator(ServoTranslator):
             self.logger.error("Socket not initialized")
             return None
 
-        # Validate packet length (17 bytes expected)
-        if len(data) != 17:
-            self.logger.warning(f"Invalid packet length: {len(data)} bytes, expected 17")
+        # Validate packet length (21 bytes expected)
+        if len(data) != 21:
+            self.logger.warning(f"Invalid packet length: {len(data)} bytes, expected 21")
             return None
 
         # Verify message type
@@ -161,7 +161,8 @@ class TGDrivesTranslator(ServoTranslator):
         try:
             azimuth_rad = struct.unpack('<f', data[1:5])[0]
             elevation_rad = struct.unpack('<f', data[5:9])[0]
-            timestamp = struct.unpack('<Q', data[9:17])[0]
+            speed_motor = struct.unpack('<f', data[9:13])[0]
+            timestamp = struct.unpack('<Q', data[13:21])[0]
         except struct.error as e:
             self.logger.error(f"Failed to parse message: {e}")
             return None
@@ -173,13 +174,13 @@ class TGDrivesTranslator(ServoTranslator):
 
         self.last_timestamp = timestamp
 
-        self.logger.debug(f"Received: azimuth={azimuth_rad:.3f} rad, elevation={elevation_rad:.3f} rad, ts={timestamp}")
+        self.logger.debug(f"Received: azimuth={azimuth_rad:.3f} rad, elevation={elevation_rad:.3f} rad, speed={speed_motor}, ts={timestamp}")
 
         # Convert radians to motor units
         azimuth_motor, elevation_motor = self._convert_to_motor_units(azimuth_rad, elevation_rad)
 
         # Build GT protocol message
-        gt_message = self._build_gt_message(azimuth_motor, elevation_motor)
+        gt_message = self._build_gt_message(azimuth_motor, elevation_motor, speed_motor)
 
         # Send to servo driver
         try:
@@ -213,9 +214,7 @@ class TGDrivesTranslator(ServoTranslator):
         elevation_center = self.elevation_max - elevation_max_side
 
         # Convert radians to motor units
-        # Original: ((azimuth * 2.0) / PI) * azimuth_max_side + azimuth_center
         azimuth_motor = int(((azimuth_rad * 2.0) / math.pi) * azimuth_max_side + azimuth_center)
-        # Original has negative sign for elevation
         elevation_motor = int(((-elevation_rad * 2.0) / math.pi) * elevation_max_side + elevation_center)
 
         # Apply speed multiplier
@@ -232,7 +231,7 @@ class TGDrivesTranslator(ServoTranslator):
 
         return self.azimuth_filtered, self.elevation_filtered
 
-    def _build_gt_message(self, azimuth: int, elevation: int) -> bytes:
+    def _build_gt_message(self, azimuth: int, elevation: int, speed: int) -> bytes:
         """
         Build GT protocol message for servo control.
 
@@ -252,7 +251,7 @@ class TGDrivesTranslator(ServoTranslator):
         az_revol_bytes = struct.pack('<i', az_revol)
         el_angle_bytes = struct.pack('<i', elevation)
         el_revol_bytes = struct.pack('<i', el_revol)
-        speed_bytes = struct.pack('<i', self.speed)
+        speed_bytes = struct.pack('<i', speed)
 
         # Build the complete message
         message = bytearray([

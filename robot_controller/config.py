@@ -33,7 +33,7 @@ class RelayConfig:
     tg_azimuth_max: int = 180000
     tg_elevation_min: int = -90000
     tg_elevation_max: int = 90000
-    tg_speed: int = 100000
+    tg_speed_max: int = 1000000
     tg_speed_multiplier: float = 0.0
     tg_filter_alpha: float = 0.15
 
@@ -149,7 +149,7 @@ class RelayConfig:
                 config_dict['tg_azimuth_max'] = data['tg_drives'].get('azimuth_max', cls.tg_azimuth_max)
                 config_dict['tg_elevation_min'] = data['tg_drives'].get('elevation_min', cls.tg_elevation_min)
                 config_dict['tg_elevation_max'] = data['tg_drives'].get('elevation_max', cls.tg_elevation_max)
-                config_dict['tg_speed'] = data['tg_drives'].get('speed', cls.tg_speed)
+                config_dict['tg_speed_max'] = data['tg_drives'].get('speed_max', cls.tg_speed_max)
                 config_dict['tg_speed_multiplier'] = data['tg_drives'].get('speed_multiplier', cls.tg_speed_multiplier)
                 config_dict['tg_filter_alpha'] = data['tg_drives'].get('filter_alpha', cls.tg_filter_alpha)
 
