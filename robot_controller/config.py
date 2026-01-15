@@ -36,6 +36,7 @@ class RelayConfig:
     tg_speed_max: int = 1000000
     tg_speed_multiplier: float = 0.0
     tg_filter_alpha: float = 0.15
+    tg_swap_axes: bool = False
 
     # Network settings - Robot
     robot_ip: str = "10.0.31.11"
@@ -152,6 +153,7 @@ class RelayConfig:
                 config_dict['tg_speed_max'] = data['tg_drives'].get('speed_max', cls.tg_speed_max)
                 config_dict['tg_speed_multiplier'] = data['tg_drives'].get('speed_multiplier', cls.tg_speed_multiplier)
                 config_dict['tg_filter_alpha'] = data['tg_drives'].get('filter_alpha', cls.tg_filter_alpha)
+                config_dict['tg_swap_axes'] = data['tg_drives'].get('swap_axes', cls.tg_swap_axes)
 
             return cls(**config_dict)
 

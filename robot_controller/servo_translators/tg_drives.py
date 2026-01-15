@@ -55,7 +55,7 @@ class TGDrivesTranslator(ServoTranslator):
                  azimuth_min: int = -180000, azimuth_max: int = 180000,
                  elevation_min: int = -90000, elevation_max: int = 90000,
                  speed_max: int = 1000000, speed_multiplier: float = 0.0,
-                 filter_alpha: float = 0.15):
+                 filter_alpha: float = 0.15, swap_axes: bool = False):
         """
         Initialize TG Drives translator.
 
@@ -67,9 +67,10 @@ class TGDrivesTranslator(ServoTranslator):
             azimuth_max: Maximum azimuth value in motor units
             elevation_min: Minimum elevation value in motor units
             elevation_max: Maximum elevation value in motor units
-            speed: Speed value for servos
+            speed_max: Maximum speed value for servos
             speed_multiplier: Speed multiplier for accelerated movement
             filter_alpha: Low-pass filter alpha (0-1, higher = less filtering)
+            swap_axes: Whether to swap azimuth and elevation axes
         """
         super().__init__(servo_ip, servo_port, timeout)
         self.logger = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ class TGDrivesTranslator(ServoTranslator):
         self.elevation_max = elevation_max
         self.speed_max = speed_max
         self.speed_multiplier = speed_multiplier
+        self.swap_axes = swap_axes
 
         # Filtering
         self.filter_alpha = filter_alpha
@@ -176,11 +178,16 @@ class TGDrivesTranslator(ServoTranslator):
 
         self.logger.debug(f"Received: azimuth={azimuth_rad:.3f} rad, elevation={elevation_rad:.3f} rad, speed={speed_motor}, ts={timestamp}")
 
+        # Swap axes if configured
+        if self.swap_axes:
+            azimuth_rad, elevation_rad = elevation_rad, azimuth_rad
+            self.logger.debug(f"Axes swapped: azimuth={azimuth_rad:.3f} rad, elevation={elevation_rad:.3f} rad")
+
         # Convert radians to motor units
         azimuth_motor, elevation_motor = self._convert_to_motor_units(azimuth_rad, elevation_rad)
 
         # Build GT protocol message
-        gt_message = self._build_gt_message(azimuth_motor, elevation_motor, speed_motor)
+        gt_message = self._build_gt_message(azimuth_motor, elevation_motor, int(speed_motor))
 
         # Send to servo driver
         try:
@@ -238,6 +245,7 @@ class TGDrivesTranslator(ServoTranslator):
         Args:
             azimuth: Azimuth value in motor units
             elevation: Elevation value in motor units
+            speed: Speed value in motor units
 
         Returns:
             Complete GT protocol message bytes
