@@ -156,6 +156,9 @@ class UDPRelayService:
         elif message_type == MessageType.ROBOT_CONTROL:
             self._forward_to_robot(data, client_addr)
 
+        elif message_type == MessageType.DEBUG_INFO:
+            self.logger.warning(f"Debug info message, handler not yet implemented: {data}")
+
         else:
             self.logger.warning(f"Unknown message type from {client_addr[0]}:{client_addr[1]}, dropping")
 

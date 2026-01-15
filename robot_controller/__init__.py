@@ -5,13 +5,14 @@ This package provides a UDP relay service that routes commands to different
 robot subsystems:
 - Head pose commands (0x01 prefix) -> Servo driver via translator
 - Robot movement commands (0x02 prefix) -> Robot controller
+- Debug info (0x03 prefix) -> Logging
 
 The servo translation layer is abstracted to support different robot types
 with different proprietary servo drivers.
 """
 
 __version__ = "1.0.0"
-__author__ = "Robot Control Team"
+__author__ = "Stanislav Svědiroh / Brno University of Technology"
 
 from .config import RelayConfig, load_configuration
 from .exceptions import (
