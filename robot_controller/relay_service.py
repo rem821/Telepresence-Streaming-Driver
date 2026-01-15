@@ -232,8 +232,9 @@ class UDPRelayService:
             [ntp_offset_us (int64)] [ntp_synced (uint8)] [time_since_ntp_sync_us (uint64)]
         """
         try:
-            # Validate packet length
-            expected_length = 1 + 8 + 8 + 4 + 8*7 + 8 + 1 + 8  # 94 bytes
+            # Validate packet length (currently 98 bytes)
+            # Note: FPS appears to be serialized as 8 bytes (double) instead of 4 bytes (float)
+            expected_length = 98
             if len(data) != expected_length:
                 self.logger.warning(f"Invalid debug info packet length: {len(data)} bytes, expected {expected_length}")
                 return
@@ -247,8 +248,8 @@ class UDPRelayService:
             frame_id = struct.unpack('<Q', data[offset:offset+8])[0]
             offset += 8
 
-            fps = struct.unpack('<f', data[offset:offset+4])[0]
-            offset += 4
+            fps = struct.unpack('<d', data[offset:offset+8])[0]
+            offset += 8
 
             vidConv_us = struct.unpack('<Q', data[offset:offset+8])[0]
             offset += 8
