@@ -23,20 +23,20 @@ network:
 
 # TG Drives Servo Configuration
 tg_drives:
-  azimuth_min: -2000000000   # Minimum azimuth in motor units
-  azimuth_max: 200000000     # Maximum azimuth in motor units
-  elevation_min: -600000000  # Minimum elevation in motor units
-  elevation_max: 1100000000  # Maximum elevation in motor units
+  elevation_min: -2000000000 # Minimum elevation in motor units
+  elevation_max: 200000000   # Maximum elevation in motor units
+  azimuth_min: -600000000    # Minimum azimuth in motor units
+  azimuth_max: 1100000000    # Maximum azimuth in motor units
   speed_max: 1000000         # Maximum servo speed
   speed_multiplier: 1.5      # Speed multiplier for accelerated movement
   filter_alpha: 0.15         # Low-pass filter (0-1, higher = less filtering)
   swap_axes: true            # Swap azimuth and elevation axes (true/false)
-  invert_azimuth: true      # Invert azimuth direction (true/false)
-  invert_elevation: true    # Invert elevation direction (true/false)
+  invert_azimuth: true       # Invert azimuth direction (true/false)
+  invert_elevation: true     # Invert elevation direction (true/false)
 
 # Logging Configuration
 logging:
-  level: "INFO"            # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "DEBUG"            # DEBUG, INFO, WARNING, ERROR, CRITICAL
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   file: null               # Log file path, or null for stdout only
   # file: "/var/log/robot_relay.log"  # Example log file path
