@@ -30,7 +30,9 @@ tg_drives:
   speed_max: 1000000         # Maximum servo speed
   speed_multiplier: 1.5      # Speed multiplier for accelerated movement
   filter_alpha: 0.15         # Low-pass filter (0-1, higher = less filtering)
-  swap_axes: false           # Swap azimuth and elevation axes (true/false)
+  swap_axes: true            # Swap azimuth and elevation axes (true/false)
+  invert_azimuth: true      # Invert azimuth direction (true/false)
+  invert_elevation: true    # Invert elevation direction (true/false)
 
 # Logging Configuration
 logging:

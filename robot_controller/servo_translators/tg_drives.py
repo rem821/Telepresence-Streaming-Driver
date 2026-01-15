@@ -55,7 +55,8 @@ class TGDrivesTranslator(ServoTranslator):
                  azimuth_min: int = -180000, azimuth_max: int = 180000,
                  elevation_min: int = -90000, elevation_max: int = 90000,
                  speed_max: int = 1000000, speed_multiplier: float = 0.0,
-                 filter_alpha: float = 0.15, swap_axes: bool = False):
+                 filter_alpha: float = 0.15, swap_axes: bool = False,
+                 invert_azimuth: bool = False, invert_elevation: bool = False):
         """
         Initialize TG Drives translator.
 
@@ -71,6 +72,8 @@ class TGDrivesTranslator(ServoTranslator):
             speed_multiplier: Speed multiplier for accelerated movement
             filter_alpha: Low-pass filter alpha (0-1, higher = less filtering)
             swap_axes: Whether to swap azimuth and elevation axes
+            invert_azimuth: Whether to invert azimuth direction
+            invert_elevation: Whether to invert elevation direction
         """
         super().__init__(servo_ip, servo_port, timeout)
         self.logger = logging.getLogger(__name__)
@@ -83,6 +86,8 @@ class TGDrivesTranslator(ServoTranslator):
         self.speed_max = speed_max
         self.speed_multiplier = speed_multiplier
         self.swap_axes = swap_axes
+        self.invert_azimuth = invert_azimuth
+        self.invert_elevation = invert_elevation
 
         # Filtering
         self.filter_alpha = filter_alpha
@@ -182,6 +187,15 @@ class TGDrivesTranslator(ServoTranslator):
         if self.swap_axes:
             azimuth_rad, elevation_rad = elevation_rad, azimuth_rad
             self.logger.debug(f"Axes swapped: azimuth={azimuth_rad:.3f} rad, elevation={elevation_rad:.3f} rad")
+
+        # Invert axis directions if configured
+        if self.invert_azimuth:
+            azimuth_rad = -azimuth_rad
+            self.logger.debug(f"Azimuth inverted: {azimuth_rad:.3f} rad")
+
+        if self.invert_elevation:
+            elevation_rad = -elevation_rad
+            self.logger.debug(f"Elevation inverted: {elevation_rad:.3f} rad")
 
         # Convert radians to motor units
         azimuth_motor, elevation_motor = self._convert_to_motor_units(azimuth_rad, elevation_rad)

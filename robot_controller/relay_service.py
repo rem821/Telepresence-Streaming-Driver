@@ -74,7 +74,9 @@ class UDPRelayService:
                 speed_max=self.config.tg_speed_max,
                 speed_multiplier=self.config.tg_speed_multiplier,
                 filter_alpha=self.config.tg_filter_alpha,
-                swap_axes=self.config.tg_swap_axes
+                swap_axes=self.config.tg_swap_axes,
+                invert_azimuth=self.config.tg_invert_azimuth,
+                invert_elevation=self.config.tg_invert_elevation
             )
         else:
             raise RelayServiceError(f"Unknown servo translator type: {translator_type}")
