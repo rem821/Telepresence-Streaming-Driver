@@ -151,9 +151,9 @@
       "targets": [
         {
           "datasource": null,
-          "rawSql": "SELECT CAST(EXTRACT(EPOCH FROM time) * 1000 AS BIGINT) AS \"time\", total_latency_us FROM pipeline_metrics WHERE time >= now() - interval '5 minutes' ORDER BY time",
+          "rawSql": "SELECT time, total_latency_us FROM pipeline_metrics WHERE time >= now() - interval '5 minutes' ORDER BY time",
           "refId": "A",
-          "format": "table"
+          "format": "time_series"
         }
       ],
       "title": "Total Pipeline Latency",
@@ -232,9 +232,9 @@
       "targets": [
         {
           "datasource": null,
-          "rawSql": "SELECT CAST(EXTRACT(EPOCH FROM time) * 1000 AS BIGINT) AS \"time\", \"vidConv_us\", enc_us, \"rtpPay_us\", \"udpStream_us\", \"rtpDepay_us\", dec_us, presentation_us FROM pipeline_metrics WHERE time >= now() - interval '5 minutes' ORDER BY time",
+          "rawSql": "SELECT time, \"vidConv_us\", enc_us, \"rtpPay_us\", \"udpStream_us\", \"rtpDepay_us\", dec_us, presentation_us FROM pipeline_metrics WHERE time >= now() - interval '5 minutes' ORDER BY time",
           "refId": "A",
-          "format": "table"
+          "format": "time_series"
         }
       ],
       "title": "Pipeline Stages Breakdown (Stacked)",
@@ -315,9 +315,9 @@
       "targets": [
         {
           "datasource": null,
-          "rawSql": "SELECT CAST(EXTRACT(EPOCH FROM time) * 1000 AS BIGINT) AS \"time\", fps FROM pipeline_metrics WHERE time >= now() - interval '5 minutes' ORDER BY time",
+          "rawSql": "SELECT time, fps FROM pipeline_metrics WHERE time >= now() - interval '5 minutes' ORDER BY time",
           "refId": "A",
-          "format": "table"
+          "format": "time_series"
         }
       ],
       "title": "Frame Rate Over Time",
