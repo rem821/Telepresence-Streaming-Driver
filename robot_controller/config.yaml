@@ -41,6 +41,12 @@ logging:
   file: null               # Log file path, or null for stdout only
   # file: "/var/log/robot_relay.log"  # Example log file path
 
+# Telemetry Configuration - InfluxDB + Grafana
+telemetry:
+  enabled: true           # Enable telemetry data collection
+  influxdb_host: "localhost:8086"
+  influxdb_database: "robot_telemetry"
+
 # Performance Configuration
 performance:
   socket_buffer_size: 8192          # UDP socket buffer size (bytes)

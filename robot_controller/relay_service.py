@@ -17,6 +17,12 @@ from .exceptions import RelayServiceError
 from .protocol import MessageDetector, MessageType
 from .servo_translators import ServoTranslator, TGDrivesTranslator
 
+try:
+    from influxdb_client_3 import InfluxDBClient3, Point
+    INFLUXDB_AVAILABLE = True
+except ImportError:
+    INFLUXDB_AVAILABLE = False
+
 
 class UDPRelayService:
     """
@@ -50,6 +56,34 @@ class UDPRelayService:
         # State
         self.running = False
         self.consecutive_errors = 0
+
+        # Telemetry - InfluxDB
+        self.influx_client: Optional[InfluxDBClient3] = None
+        self._init_influxdb()
+
+    def _init_influxdb(self):
+        """Initialize InfluxDB client if telemetry is enabled."""
+        if not self.config.telemetry_enabled:
+            self.logger.info("Telemetry disabled")
+            return
+
+        if not INFLUXDB_AVAILABLE:
+            self.logger.warning("Telemetry enabled but influxdb3-python package not installed. "
+                              "Install with: pip install influxdb3-python")
+            return
+
+        try:
+            # InfluxDB 3.0 client - database is created automatically on first write
+            self.influx_client = InfluxDBClient3(
+                host=self.config.influxdb_host,
+                database=self.config.influxdb_database,
+                token=""  # Empty token for local InfluxDB without auth
+            )
+
+            self.logger.info(f"InfluxDB telemetry enabled: {self.config.influxdb_host}/{self.config.influxdb_database}")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize InfluxDB client: {e}")
+            self.influx_client = None
 
     def _create_servo_translator(self) -> ServoTranslator:
         """
@@ -139,6 +173,14 @@ class UDPRelayService:
             except Exception as e:
                 self.logger.warning(f"Error closing servo translator: {e}")
             self.servo_translator = None
+
+        if self.influx_client:
+            try:
+                self.influx_client.close()
+                self.logger.info("InfluxDB client closed")
+            except Exception as e:
+                self.logger.warning(f"Error closing InfluxDB client: {e}")
+            self.influx_client = None
 
     def _route_message(self, data: bytes, client_addr: Tuple[str, int]):
         """
@@ -282,13 +324,45 @@ class UDPRelayService:
             offset += 8
 
             # Log the debug information
-            self.logger.info(
+            self.logger.debug(
                 f"DEBUG INFO from {client_addr[0]}:{client_addr[1]} - "
                 f"frame_id={frame_id}, fps={fps:.1f}, ts={timestamp}, "
                 f"pipeline_us=[vidConv={vidConv_us}, enc={enc_us}, rtpPay={rtpPay_us}, "
                 f"udpStream={udpStream_us}, rtpDepay={rtpDepay_us}, dec={dec_us}, pres={presentation_us}], "
                 f"ntp=[offset_us={ntp_offset_us}, synced={ntp_synced}, time_since_sync_us={time_since_ntp_sync_us}]"
             )
+
+            # Write to InfluxDB if enabled
+            if self.influx_client:
+                try:
+                    # Calculate total pipeline latency
+                    total_latency_us = vidConv_us + enc_us + rtpPay_us + udpStream_us + rtpDepay_us + dec_us + presentation_us
+
+                    # Create Point using influxdb3-python API
+                    point = (
+                        Point("pipeline_metrics")
+                        .tag("source", client_addr[0])
+                        .field("frame_id", int(frame_id))
+                        .field("fps", float(fps))
+                        .field("vidConv_us", int(vidConv_us))
+                        .field("enc_us", int(enc_us))
+                        .field("rtpPay_us", int(rtpPay_us))
+                        .field("udpStream_us", int(udpStream_us))
+                        .field("rtpDepay_us", int(rtpDepay_us))
+                        .field("dec_us", int(dec_us))
+                        .field("presentation_us", int(presentation_us))
+                        .field("total_latency_us", int(total_latency_us))
+                        .field("ntp_offset_us", int(ntp_offset_us))
+                        .field("ntp_synced", int(ntp_synced))
+                        .field("time_since_ntp_sync_us", int(time_since_ntp_sync_us))
+                        .time(timestamp)
+                    )
+
+                    # Write point to InfluxDB
+                    self.influx_client.write(record=point)
+                    self.logger.debug(f"Wrote metrics to InfluxDB: frame_id={frame_id}, fps={fps:.1f}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to write to InfluxDB: {e}")
 
             # Reset error counter on success
             self.consecutive_errors = 0

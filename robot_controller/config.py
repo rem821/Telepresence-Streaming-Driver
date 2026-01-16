@@ -54,6 +54,11 @@ class RelayConfig:
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     log_file: Optional[str] = None
 
+    # Telemetry - InfluxDB
+    telemetry_enabled: bool = False
+    influxdb_host: str = "localhost:8086"
+    influxdb_database: str = "robot_telemetry"
+
     # Performance
     socket_buffer_size: int = 8192
     max_consecutive_errors: int = 3
@@ -141,6 +146,11 @@ class RelayConfig:
                 config_dict['log_level'] = data['logging'].get('level', cls.log_level)
                 config_dict['log_format'] = data['logging'].get('format', cls.log_format)
                 config_dict['log_file'] = data['logging'].get('file', cls.log_file)
+
+            if 'telemetry' in data:
+                config_dict['telemetry_enabled'] = data['telemetry'].get('enabled', cls.telemetry_enabled)
+                config_dict['influxdb_host'] = data['telemetry'].get('influxdb_host', cls.influxdb_host)
+                config_dict['influxdb_database'] = data['telemetry'].get('influxdb_database', cls.influxdb_database)
 
             if 'performance' in data:
                 config_dict['socket_buffer_size'] = data['performance'].get('socket_buffer_size', cls.socket_buffer_size)
