@@ -10,7 +10,9 @@ import signal
 import socket
 import struct
 import sys
-from typing import Optional, Tuple
+import time
+from threading import Thread, Lock
+from typing import Optional, Tuple, List
 
 from .config import load_configuration, RelayConfig
 from .exceptions import RelayServiceError
@@ -57,8 +59,11 @@ class UDPRelayService:
         self.running = False
         self.consecutive_errors = 0
 
-        # Telemetry - InfluxDB
+        # Telemetry - InfluxDB with batch buffering
         self.influx_client: Optional[InfluxDBClient3] = None
+        self.influx_buffer: List[Point] = []
+        self.influx_buffer_lock = Lock()
+        self.influx_batch_thread: Optional[Thread] = None
         self._init_influxdb()
 
     def _init_influxdb(self):
@@ -79,10 +84,53 @@ class UDPRelayService:
                 token=self.config.influxdb_token
             )
 
-            self.logger.info(f"InfluxDB telemetry enabled: {self.config.influxdb_host}/{self.config.influxdb_database}")
+            # Start batch writer thread (flushes every 2 seconds)
+            self.influx_batch_thread = Thread(target=self._influx_batch_writer, daemon=True)
+            self.influx_batch_thread.start()
+
+            self.logger.info(f"InfluxDB telemetry enabled (batch mode, 2s interval): {self.config.influxdb_host}/{self.config.influxdb_database}")
         except Exception as e:
             self.logger.error(f"Failed to initialize InfluxDB client: {e}")
             self.influx_client = None
+
+    def _influx_batch_writer(self):
+        """Background thread that batches and writes points every 2 seconds."""
+        self.logger.info("InfluxDB batch writer thread started")
+
+        while self.running:
+            try:
+                # Sleep for 2 seconds
+                time.sleep(2.0)
+
+                # Get all buffered points
+                with self.influx_buffer_lock:
+                    if not self.influx_buffer:
+                        continue  # Nothing to write
+
+                    points_to_write = self.influx_buffer[:]
+                    self.influx_buffer.clear()
+
+                # Batch write all points
+                if points_to_write:
+                    try:
+                        self.influx_client.write(record=points_to_write)
+                        self.logger.debug(f"Batch wrote {len(points_to_write)} points to InfluxDB")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to batch write to InfluxDB: {e}")
+
+            except Exception as e:
+                self.logger.error(f"Error in batch writer thread: {e}")
+
+        # Final flush on shutdown
+        with self.influx_buffer_lock:
+            if self.influx_buffer:
+                try:
+                    self.influx_client.write(record=self.influx_buffer)
+                    self.logger.info(f"Final flush: wrote {len(self.influx_buffer)} points")
+                except Exception:
+                    pass
+
+        self.logger.info("InfluxDB batch writer thread stopped")
 
     def _create_servo_translator(self) -> ServoTranslator:
         """
@@ -175,6 +223,11 @@ class UDPRelayService:
 
         if self.influx_client:
             try:
+                # Wait for batch thread to finish (it will flush remaining data)
+                if self.influx_batch_thread and self.influx_batch_thread.is_alive():
+                    self.logger.info("Waiting for InfluxDB batch writer to finish...")
+                    self.influx_batch_thread.join(timeout=5.0)
+
                 self.influx_client.close()
                 self.logger.info("InfluxDB client closed")
             except Exception as e:
@@ -357,11 +410,12 @@ class UDPRelayService:
                         .time(timestamp)
                     )
 
-                    # Write point to InfluxDB
-                    self.influx_client.write(record=point)
-                    self.logger.debug(f"Wrote metrics to InfluxDB: frame_id={frame_id}, fps={fps:.1f}")
+                    # Buffer point for batch write (non-blocking)
+                    with self.influx_buffer_lock:
+                        self.influx_buffer.append(point)
+                    self.logger.debug(f"Buffered metrics for InfluxDB: frame_id={frame_id}, fps={fps:.1f}, buffer_size={len(self.influx_buffer)}")
                 except Exception as e:
-                    self.logger.warning(f"Failed to write to InfluxDB: {e}")
+                    self.logger.warning(f"Failed to buffer InfluxDB point: {e}")
 
             # Reset error counter on success
             self.consecutive_errors = 0
