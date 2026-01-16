@@ -25,6 +25,9 @@ echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stab
 sudo apt-get update
 sudo apt-get install grafana
 
+sudo systemctl start grafana-server.service
+sudo systemctl enable grafana-server.service
+
 ```
 
 ### 3. Install Python Client

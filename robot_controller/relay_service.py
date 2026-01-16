@@ -64,7 +64,6 @@ class UDPRelayService:
         self.influx_buffer: List[Point] = []
         self.influx_buffer_lock = Lock()
         self.influx_batch_thread: Optional[Thread] = None
-        self._init_influxdb()
 
     def _init_influxdb(self):
         """Initialize InfluxDB client if telemetry is enabled."""
@@ -487,6 +486,9 @@ class UDPRelayService:
 
         # Set running flag
         self.running = True
+
+        # Init telemetry
+        self._init_influxdb()
 
         # Enter main loop
         try:
