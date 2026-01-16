@@ -73,11 +73,10 @@ class UDPRelayService:
             return
 
         try:
-            # InfluxDB 3.0 client - database is created automatically on first write
             self.influx_client = InfluxDBClient3(
                 host=self.config.influxdb_host,
                 database=self.config.influxdb_database,
-                token=""  # Empty token for local InfluxDB without auth
+                token=self.config.influxdb_token
             )
 
             self.logger.info(f"InfluxDB telemetry enabled: {self.config.influxdb_host}/{self.config.influxdb_database}")

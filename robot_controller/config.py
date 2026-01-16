@@ -58,6 +58,7 @@ class RelayConfig:
     telemetry_enabled: bool = False
     influxdb_host: str = "localhost:8086"
     influxdb_database: str = "robot_telemetry"
+    influxdb_token: str = ""
 
     # Performance
     socket_buffer_size: int = 8192
@@ -151,6 +152,7 @@ class RelayConfig:
                 config_dict['telemetry_enabled'] = data['telemetry'].get('enabled', cls.telemetry_enabled)
                 config_dict['influxdb_host'] = data['telemetry'].get('influxdb_host', cls.influxdb_host)
                 config_dict['influxdb_database'] = data['telemetry'].get('influxdb_database', cls.influxdb_database)
+                config_dict['influxdb_token'] = data['telemetry'].get('influxdb_token', cls.influxdb_token)
 
             if 'performance' in data:
                 config_dict['socket_buffer_size'] = data['performance'].get('socket_buffer_size', cls.socket_buffer_size)
