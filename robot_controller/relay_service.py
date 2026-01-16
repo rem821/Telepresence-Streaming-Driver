@@ -390,6 +390,9 @@ class UDPRelayService:
                     total_latency_us = vidConv_us + enc_us + rtpPay_us + udpStream_us + rtpDepay_us + dec_us + presentation_us
 
                     # Create Point using influxdb3-python API
+                    # Use current time instead of packet timestamp (which is relative, not Unix epoch)
+                    timestamp_ns = time.time_ns()
+
                     point = (
                         Point("pipeline_metrics")
                         .tag("source", client_addr[0])
@@ -406,7 +409,7 @@ class UDPRelayService:
                         .field("ntp_offset_us", int(ntp_offset_us))
                         .field("ntp_synced", int(ntp_synced))
                         .field("time_since_ntp_sync_us", int(time_since_ntp_sync_us))
-                        .time(timestamp)
+                        .time(timestamp_ns)
                     )
 
                     # Buffer point for batch write (non-blocking)

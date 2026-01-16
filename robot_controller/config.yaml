@@ -44,9 +44,9 @@ logging:
 # Telemetry Configuration - InfluxDB + Grafana
 telemetry:
   enabled: true           # Enable telemetry data collection
-  influxdb_host: "http://localhost:8081"
+  influxdb_host: "http://localhost:8181"
   influxdb_database: "but_telepresence_telemetry"
-  influxdb_token: "apiv3_zGkyRmdeHToPEAKfFFNDDZrxOKiKYTBC8O-_-LcDDSpAhHFdK_ELoFtekdFOwn8RyZ3pHqmoa7VCUu4-10NPAQ" # This is only okay for locally hosted databases
+  influxdb_token: ""
 
 # Performance Configuration
 performance:

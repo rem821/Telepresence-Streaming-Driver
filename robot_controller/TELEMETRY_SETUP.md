@@ -10,8 +10,9 @@ Quick guide to set up real-time telemetry monitoring for your telepresence robot
 curl -O https://www.influxdata.com/d/install_influxdb3.sh && sh install_influxdb3.sh
 source ~/.bashrc
 influxdb3 create token --admin # Keep the output somewhere safe
-influxdb3 serve --node-id but_telepresence_telemetry --object-store file
 
+# To actually run the server (without authentification!)
+influxdb3 serve --node-id but_telepresence_telemetry --object-store file --without-auth
 ```
 
 ### 2. Install Grafana
